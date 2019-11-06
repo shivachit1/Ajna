@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "253097361888",
+    "firebase_url": "https://ajna-100a1.firebaseio.com",
+    "project_id": "ajna-100a1",
+    "storage_bucket": "ajna-100a1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:253097361888:android:4caa0853668a3095",
+        "android_client_info": {
+          "package_name": "app.shiva.ajna"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "253097361888-gb6jqmu051g4j0cbfhbuuk2h147v5p0e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.shiva.ajna",
+            "certificate_hash": "5ee82e8bce251d94e4d8414012130269072ec716"
+          }
+        },
+        {
+          "client_id": "253097361888-5u90ks8gfcgb2ccc9rp1iicj50j6s85q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAq8w71oO3Q6ExYlVBgvhAXcHD4_WXcsjE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "253097361888-5u90ks8gfcgb2ccc9rp1iicj50j6s85q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
