@@ -21,5 +21,6 @@
 #-renamesourcefileattribute SourceFile
 # Add this global rule
 -keep class com.google.android.gms.maps.model.LatLng
+-keep class com.shiva.ajna.model.User
 -keepattributes Signature
 -keepattributes *Annotation*

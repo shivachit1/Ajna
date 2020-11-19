@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:background="@drawable/block_rectangle">
 
     <LinearLayout
         android:id="@+id/linearLayout"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
+        android:baselineAligned="false"
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -19,21 +20,30 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/requestslayout"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@drawable/white_roundedbox">
+            android:background="@drawable/greenround">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/friendRequestCounter"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/red_rectangle"
+                android:visibility="gone"
+                app:layout_constraintBottom_toTopOf="@+id/friendRequestTextView"
+                app:layout_constraintEnd_toEndOf="@+id/friendRequestTextView"
+                app:layout_constraintStart_toEndOf="@+id/friendRequestTextView" />
 
             <TextView
-                android:id="@+id/textView17"
+                android:id="@+id/friendRequestTextView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
                 android:layout_marginEnd="8dp"
-                android:layout_marginBottom="8dp"
                 android:gravity="center"
-                android:text="Friend Requests"
+                android:text="@string/friend_requests"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -41,32 +51,39 @@
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/line"
+            android:textSize="18sp" />
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/requestspendinglayout"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1">
 
             <TextView
-                android:id="@+id/textView22"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
                 android:layout_marginEnd="8dp"
-                android:layout_marginBottom="8dp"
                 android:gravity="center"
-                android:text="Pending Requests"
+                android:text="@string/pending_requests"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.6"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </LinearLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
@@ -79,17 +96,14 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/friendRequestRecycleView"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/white_roundedbox"
+            android:clipChildren="true"
+            android:clipToPadding="true"
+            android:layoutAnimation="@anim/recyclerviewanimation"
             android:visibility="visible"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -101,7 +115,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginEnd="64dp"
             android:layout_marginBottom="8dp"
-            android:text="No Friend Requests"
+            android:text="@string/no_friend_requests"
             android:textSize="18sp"
             android:textStyle="bold"
             android:visibility="invisible"

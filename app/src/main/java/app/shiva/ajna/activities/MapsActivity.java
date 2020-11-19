@@ -1,69 +1,75 @@
 package app.shiva.ajna.activities;
 
 import android.Manifest;
-import android.app.Activity;
+import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.IntentSender;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.os.Build;
+import android.os.AsyncTask;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.LinearSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
-import android.os.Looper;
+import android.os.HandlerThread;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
-import android.view.WindowManager;
+import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ListView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.SnapHelper;
 
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.ResolvableApiException;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResponse;
-import com.google.android.gms.location.SettingsClient;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -72,9 +78,11 @@ import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
@@ -85,7 +93,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 import com.google.zxing.BarcodeFormat;
@@ -96,562 +103,1026 @@ import com.google.zxing.common.BitMatrix;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.squareup.picasso.Picasso;
 
-import org.webrtc.AudioSource;
-import org.webrtc.AudioTrack;
-import org.webrtc.Camera1Enumerator;
-import org.webrtc.Camera2Enumerator;
-import org.webrtc.CameraEnumerator;
-import org.webrtc.EglBase;
-import org.webrtc.IceCandidate;
-import org.webrtc.MediaConstraints;
-import org.webrtc.MediaStream;
-import org.webrtc.PeerConnection;
-import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoSource;
-import org.webrtc.VideoTrack;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import app.shiva.ajna.adapter.ChatBoxListViewAdapter;
+import app.shiva.ajna.fragments.CallViewFragment;
+import app.shiva.ajna.DirectionsParser;
+import app.shiva.ajna.adapter.AllUsersRecycleViewAdaptor;
+import app.shiva.ajna.adapter.ChatBoxAdaptor;
 import app.shiva.ajna.adapter.ChatRoomUsersListViewAdaptor;
-import app.shiva.ajna.adapter.ContactAdapter;
-import app.shiva.ajna.adapter.MessagesListviewAdaptor;
+import app.shiva.ajna.adapter.FriendRequestAdaptor;
+import app.shiva.ajna.adapter.ChatRoomsListViewAdaptor;
 import app.shiva.ajna.R;
 
 import static android.Manifest.permission.CAMERA;
+import static android.widget.NumberPicker.OnScrollListener.SCROLL_STATE_IDLE;
 
+import app.shiva.ajna.adapter.FooterTabsAdaptor;
+import app.shiva.ajna.adapter.MyContactsAdaptor;
 import app.shiva.ajna.model.Call;
 import app.shiva.ajna.model.ChatRoom;
+import app.shiva.ajna.model.ChatRoomUser;
+import app.shiva.ajna.model.Issue;
+import app.shiva.ajna.model.LocationTracking;
+import app.shiva.ajna.model.MessageSeen;
+import app.shiva.ajna.model.TabModel;
+import app.shiva.ajna.model.User;
 import app.shiva.ajna.model.Message;
 import app.shiva.ajna.model.Contact;
+import app.shiva.ajna.model.UserActive;
+import app.shiva.ajna.model.UserLatLng;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
 
+@SuppressWarnings("ALL")
 public class MapsActivity extends FragmentActivity implements
-        OnMapReadyCallback,
-        LocationListener, ZXingScannerView.ResultHandler {
+        OnMapReadyCallback, ZXingScannerView.ResultHandler, View.OnClickListener {
+
     private static final int MY_PERMISSIONS_REQUEST_LOCATION = 101;
-    private static final int REQUEST_CHECK_SETTINGS=1001;
-    private static final String TAG = "tt";
-    private FirebaseAuth mAuth;
+
     //Map Variables :
     private GoogleMap mMap;
-    private LocationRequest mLocationRequest;
     private Location mLastLocation;
-    private CameraPosition cameraPosition;
-    private ContactAdapter contactAdapter;
-
-    private ImageView profileImage;
-    private ConstraintLayout userImageViewCons;
-    private ProgressBar progressBar;
-    private ConstraintLayout contactsLayout;
-
-
-    private static final int REQUEST_CAMERA = 1;
-    Dialog scanqr;
-    private ZXingScannerView mScannerView;
+    CameraPosition cameraPosition;
     private FusedLocationProviderClient fusedLocationClient;
-    private LocationCallback locationCallback;
+    private LocationManager locationManager;
+    private Polyline polyline;
+
+    private LocationCallback mLocationCallback;
     //Firebase classes
-
-    String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-    DatabaseReference mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
-    StorageReference storageRef = FirebaseStorage.getInstance().getReference();
-    ConstraintLayout overlappingConstraint;
-    LatLng UserLatlng=new LatLng(0,0);
-    ArrayList<Marker> friendMarkerList=new ArrayList<>();
-    boolean locationSetting=false;
-    LocationManager locationManager;
-    TextView contactscounter;
+    FirebaseAuth mAuth;
+    String userId;
+    DatabaseReference mFirebaseDatabaseReference;
+    StorageReference storageRef;
 
 
+    // Ui Components
+    public static ConstraintLayout overLappingCons;
+    public static ConstraintLayout mainCons;
+    private ConstraintLayout topCons;
+    private ConstraintLayout footerCons;
+    private ImageView userImageView;
+    ConstraintLayout searchCons;
+    TextView locationConsTextView;
+    private CardView userImageViewCons;
+    CardView newFriendRequestNotifier;
+    ConstraintLayout contactpendingCounterLayout;
+    ConstraintLayout showFriendProfile;
+    ConstraintLayout middleCons;
+    ConstraintLayout markMyLocationCons;
+    ImageButton setting;
+
+    // Extra Variables
+    private FriendRequestAdaptor friendRequestAdaptor;
+    private ProgressBar progressBar;
+    private static final int REQUEST_CAMERA = 1;
+    private ZXingScannerView mScannerView;
+
+    LatLng myLatlng;
+    User myDetails;
+    String activeStatusShareSettingValue = "false";
+
+    // Firebase ValueEvent Listeners
+
+    ValueEventListener getMyDataListener;
+    DatabaseReference myDataReference;
+
+    SupportMapFragment mapFragment;
+    private static final String TAG = "MapsActivity";
+    FooterTabsAdaptor footerTabsAdaptor;
+    ArrayList<TabModel> footerTabModels =new ArrayList<TabModel>();
+
+    private MediaPlayer mediaPlayer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_consumer_maps);
-        mAuth = FirebaseAuth.getInstance();
 
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
+        Log.d("oncreateMapsactivity", "onCreate");
+
+        mAuth = FirebaseAuth.getInstance();
+        userId = mAuth.getUid();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+
+        if (currentUser == null) {
+            Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+            startActivity(intent);
+        }else{
+
+            handlerThread = new HandlerThread("My background Thread");
+            handlerThread.start();
+
+            mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
+            storageRef = FirebaseStorage.getInstance().getReference();
+            myDataReference = mFirebaseDatabaseReference.child("Users").child(userId);
+
+            getMyData();
+            getAllUsersData();
+            getMyContacts();
+            getMyChatRooms();
+            checkForMyPhoneCalls();
+
+            mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.blopsound);
+            mediaPlayer.setVolume(0.07f,0.07f);
+
+            //get Permission and Datas
             checkLocationPermission();
+            setContentView(R.layout.activity_consumer_maps);
+            setRequestedOrientation (ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+
+
+
+            FragmentManager fm = getSupportFragmentManager();
+            SupportMapFragment mapFragment =  SupportMapFragment.newInstance();
+            fm.beginTransaction().replace(R.id.map, mapFragment).commit();
+            mapFragment.getMapAsync(this);
+
+        inputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        IntentFilter filter = new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION);
+        filter.addAction(Intent.ACTION_PROVIDER_CHANGED);
+        getApplicationContext().registerReceiver(gpsSwitchStateReceiver, filter);
+
+
+        // My Main Dailog Box. (Single Dialog Object for all dialogbox)
+        myMainDialog = new Dialog(this);
+        if (myMainDialog.getWindow() != null) {
+
+            myMainDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            // Dialog box animation for myMainDialog.show() and myMainDialog.dismiss();
+            myMainDialog.getWindow().getAttributes().windowAnimations = R.style.SlidingDialogAnimation;
+
         }
 
 
-        getIntentData();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        // Obtain the SupportMapFragment and get nified when the map is ready to be used.
-        final SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        // Constraint Layout On top of Map View (Use case: add xml layout directly as view to constraint layout )
+        middleCons = findViewById(R.id.middleCons);
+        topCons=findViewById(R.id.topCons);
+        footerCons=findViewById(R.id.footerCons);
 
-        messageCall=findViewById(R.id.messageCall);
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
+        // New message notification counter
+            newFriendRequestNotifier = findViewById(R.id.newFriendRequestNotifier);
+
+
+        startBackgroundThread();
+        setting=findViewById(R.id.setting);
+        setting.setOnClickListener(this);
+        searchCons= findViewById(R.id.searchCons);
+        searchCons.setOnClickListener(this);
+        findViewById(R.id.friendRequestButton).setOnClickListener(this);
+
+        mainCons=findViewById(R.id.mainCons);
+        overLappingCons=findViewById(R.id.overLappingCons);
+        findViewById(R.id.singleTextView).setOnClickListener(this);
+
+        }
+
+        showFooterTabs();
+    }
+
+    public int dpToPx(int dp) {
+        float density = getResources()
+                .getDisplayMetrics()
+                .density;
+        return Math.round((float) dp * density);
+    }
+
+
+    boolean userImageViewSetStatus=false;
+    ArrayList<User> liveLocationSharingFriends=new ArrayList<User>();
+    Handler mainHandler;
+    public void  startBackgroundThread(){
+        mainHandler = new Handler();
+        mainHandler.postDelayed( new Runnable() {
+            public void run() {
+
+                if(myDetails!=null && !userImageViewSetStatus){
+
+                    userImageViewSetStatus=true;
+
                 }
 
-                for (Location location : locationResult.getLocations()) {
-                    if (location != null) {
+                if(myLatlng !=null){
+                    if(usermarker==null && myDetails!=null){
+                       createMyMarker();
+                    }
 
-                        mLastLocation = location;
-                        UserLatlng=new LatLng(location.getLatitude(),location.getLongitude());
+                    getfriendLocations();
 
-                        mFirebaseDatabaseReference.child("Users").child("Consumers").child(userId).child("photoUri").addValueEventListener(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                if (dataSnapshot.exists()) {
-                                    View userMarkerView=getLayoutInflater().inflate(R.layout.imageviewmarker,null);
-                                    ImageView userImage=userMarkerView.findViewById(R.id.friendImage);
-                                    ConstraintLayout markerbg=userMarkerView.findViewById(R.id.markerbg);
-                                    String photoUri=dataSnapshot.getValue(String.class);
-                                    markerbg.setBackground(getDrawable(R.drawable.usermarker));
 
-                                    Picasso.get()
-                                            .load(photoUri)
-                                            .into(userImage, new com.squareup.picasso.Callback() {
-                                                @Override
-                                                public void onSuccess() {
 
-                                                    Bitmap bmp =  createBitmapFromView(MapsActivity.this,userMarkerView);
+                }
+                mainHandler.postDelayed(this, 100);
+            }
+        },200);
 
-                                                    BitmapDescriptor icon = BitmapDescriptorFactory.fromBitmap(Bitmap.createScaledBitmap(bmp, 180, 180, false));
-                                                    if(usermarker!=null){
-                                                        usermarker.setPosition(UserLatlng);
-                                                    }
-                                                    else{
-                                                        usermarker = mMap.addMarker(new MarkerOptions()
-                                                                .position(UserLatlng).title("You")
-                                                                .visible(true).icon(icon));
-                                                        usermarker.setTag(userId);
-                                                    }
+    }
 
-                                                }
 
-                                                @Override
-                                                public void onError(Exception e) {
 
-                                                }
-                                            });
+    private void showQuickAddDialog() {
+        ArrayList<User> quickAddUsersList=new ArrayList<>();
+        for(User user:allUsersList){
+            if(!myAllContacts.contains(user.getUserID())){
+                quickAddUsersList.add(user);
+            }
+        }
 
-                                }
+        myMainDialog.setContentView(R.layout.searchview);
+        myMainDialog.show();
+        RecyclerView alluserRecycleView=myMainDialog.findViewById(R.id.alluserRecycleView);
 
-                            }
+        TextView emptyInfo=myMainDialog.findViewById(R.id.emptyInfo);
+        if(quickAddUsersList.size()==0){
+            emptyInfo.setVisibility(View.VISIBLE);
+            alluserRecycleView.setVisibility(View.GONE);
+        }else{
+            emptyInfo.setVisibility(View.GONE);
+            alluserRecycleView.setVisibility(View.VISIBLE);
+        }
 
-                            @Override
-                            public void onCancelled(@NonNull DatabaseError databaseError) {
+        LinearLayoutManager horizontalLayoutManager
+                = new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false);
+        alluserRecycleView.setLayoutManager(horizontalLayoutManager);
+        allUsersRecycleViewAdaptor = new AllUsersRecycleViewAdaptor(quickAddUsersList, new AllUsersRecycleViewAdaptor.OnItemClickListener() {
+            @Override
+            public void onViewClick(User user) {
+                showaddcontact(user);
+            }
 
-                            }
-                        });
+            @Override
+            public void onAddClick(User user) {
 
+
+                    Toast.makeText(getApplicationContext(), "Request Sent to: " + user.getUserName().toString(),
+                            Toast.LENGTH_SHORT).show();
+
+                    String contactID = mFirebaseDatabaseReference.child("Contacts").push().getKey();
+                    Contact contact = new Contact(contactID, userId, user.getUserID(), "Pending");
+
+                    if (contactID != null) {
+                        mFirebaseDatabaseReference.child("Contacts").child(contactID).setValue(contact);
 
                     }
-                }
-                mFirebaseDatabaseReference.child("Location Updates").child(userId).setValue(UserLatlng);
-
-            }
-
-            ;
-        };
-
-
-        contactsLayout = findViewById(R.id.contactsLayout);
-        contactscounter=findViewById(R.id.contactscounter);
-        ConstraintLayout contacts = findViewById(R.id.contacts);
-        ConstraintLayout messages = findViewById(R.id.messages);
-        ConstraintLayout scan = findViewById(R.id.scan);
-        TextView no_contact_status = findViewById(R.id.no_contact_status);
-        ImageButton setting = findViewById(R.id.setting);
-
-        setting.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showSettingDialog();
-            }
-        });
-
-        overlappingConstraint = findViewById(R.id.overlappingConstraint);
-
-
-        contacts.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                contactsLayout.setVisibility(View.VISIBLE);
-                messageCall.setVisibility(View.GONE);
-                ConstraintLayout contactpendingCounterLayout=findViewById(R.id.contactpendingCounterLayout);
-
-                if(friendRequestList.size()>0){
-                    contactpendingCounterLayout.setVisibility(View.VISIBLE);
-
-                }
-                else{
-                    contactpendingCounterLayout.setVisibility(View.GONE);
-                }
 
 
             }
         });
-        messages.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        alluserRecycleView.setAdapter(allUsersRecycleViewAdaptor);
 
-                showMessageDialog();
+
+
+    }
+
+    private int lastContactsPosition=0;
+    private int scrollMyContactsTo;
+    MyContactsAdaptor myContactsAdaptor;
+    private  ArrayList<User> myContactsUsersList=new ArrayList<User>();
+    public void showMyContacts(User scrollToUser) {
+
+
+        View myContactsView = getLayoutInflater().inflate(R.layout.mycontactsview, null,false);
+
+        RecyclerView mycontacts = myContactsView.findViewById(R.id.myContacts);
+
+        LinearLayoutManager myContactsLayoutManager = new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false);
+        mycontacts.setLayoutManager(myContactsLayoutManager);
+
+        SnapHelper myContactsSnapHelper = new LinearSnapHelper();
+
+
+        myContactsAdaptor = new MyContactsAdaptor(myContactsUsersList, myDetails, new MyContactsAdaptor.OnItemClickListener() {
+            @Override
+            public void onViewClick(User user) {
+                Toast toast = Toast.makeText(getApplicationContext(), "View Click",
+                        Toast.LENGTH_SHORT);
+                toast.setGravity(Gravity.TOP, 0, 250);
+                toast.show();
+            }
+
+            @Override
+            public void onSendMessage(User user) {
+                for (ChatRoom chatRoom : chatRoomList) {
+                    HashMap<String, ChatRoomUser> chatRoomUserHashMap =(HashMap<String, ChatRoomUser>) chatRoom.getChatRoomUsers();
+
+                    if (chatRoomUserHashMap.containsKey(user.getUserID()) && chatRoomUserHashMap.containsKey(userId)) {
+
+                        showeachChatView(chatRoom);
+
+                    }
+
+                }
+            }
+
+            @Override
+            public void onVideoCall(User user) {
+                startCallingFriend(user,"video call");
+            }
+
+            @Override
+            public void onGetDirections(User user) {
+                Toast toast = Toast.makeText(getApplicationContext(), "Get Directions",
+                        Toast.LENGTH_SHORT);
+                toast.setGravity(Gravity.TOP, 0, 250);
+                toast.show();
+
+                if (friendMarkerHashMap.get(user.getUserID()) != null && friendMarkerHashMap != null) {
+
+                    String url= getRequestUrl(usermarker.getPosition(),friendMarkerHashMap.get(user.getUserID()).getPosition());
+                    TaskRequestDirections taskRequestDirections=new TaskRequestDirections();
+                    taskRequestDirections.execute(url);
+                }
 
             }
         });
 
+        mycontacts.setAdapter(myContactsAdaptor);
+        myContactsSnapHelper.attachToRecyclerView(mycontacts);
 
-        scan.setOnClickListener(new View.OnClickListener() {
+        mycontacts.addOnScrollListener(new RecyclerView.OnScrollListener() {
+
+
             @Override
-            public void onClick(View v) {
-                scanqr = new Dialog(MapsActivity.this);
-                mScannerView = new ZXingScannerView(getApplicationContext());
-                scanqr.setContentView(mScannerView);
-                scanqr.show();
-                int currentapiVersion = android.os.Build.VERSION.SDK_INT;
-                if (currentapiVersion >= android.os.Build.VERSION_CODES.M) {
-                    if (checkPermission()) {
-                        if (mScannerView == null) {
-                            mScannerView = new ZXingScannerView(MapsActivity.this);
-                            scanqr.setContentView(mScannerView);
-                            scanqr.show();
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+
+                View view = myContactsSnapHelper.findSnapView(myContactsLayoutManager);
+                int position=myContactsLayoutManager.getPosition(view);
+                Log.e("position",""+position);
+
+                User user= myContactsUsersList.get(position);
+
+                if(newState==SCROLL_STATE_IDLE && lastContactsPosition==position){
+
+                    if (friendMarkerHashMap.get(user.getUserID()) != null && friendMarkerHashMap != null) {
+                        changeMapCamera(friendMarkerHashMap.get(user.getUserID()).getPosition(),13);
+                        friendMarkerHashMap.get(user.getUserID()).showInfoWindow();
+                    }
+
+
+                }
+
+            }
+
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                View snapView= myContactsSnapHelper.findSnapView(myContactsLayoutManager);
+                int position=myContactsLayoutManager.getPosition(snapView);
+
+                User user= myContactsUsersList.get(position);
+
+                    if (friendMarkerHashMap.get(user.getUserID()) != null && friendMarkerHashMap != null) {
+                        changeMapCamera(friendMarkerHashMap.get(user.getUserID()).getPosition(),13);
+                        friendMarkerHashMap.get(user.getUserID()).showInfoWindow();
+                    }
+
+
+                if(position!= lastContactsPosition){
+
+                    lastContactsPosition =position;
+
+                }
+
+                for(User user1: myContactsUsersList){
+
+                    int tabsIndex= myContactsUsersList.indexOf(user1);
+                    View view = myContactsLayoutManager.getChildAt(tabsIndex);
+
+
+                    if(snapView!=null && view!=null){
+                        if(snapView==view){
+
+                                setRecyclerViewItemDecoration(view,R.drawable.black_round_transparent_background,position, ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,1.0f);
+
 
                         }
-                        mScannerView.setResultHandler(MapsActivity.this);
-                        mScannerView.startCamera();
+                        else if(tabsIndex==position-1 || tabsIndex==position+1){
 
-                    } else {
-                        requestPermission();
+                            setRecyclerViewItemDecoration(view,R.drawable.black_round_transparent_background,position, ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,0.5f);
+
+
+                        }
+
+                        else{
+
+                            setRecyclerViewItemDecoration(view,R.drawable.black_round_transparent_background,position, ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,0.2f);
+
+
+
+                        }
                     }
-                }
-            }
-        });
-        EditText search = findViewById(R.id.search);
-        search.addTextChangedListener(new TextWatcher() {
-            public void afterTextChanged(Editable s) {
-                // writemessage.setText(s.toString());
-
-            }
-
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                //s is the current character in the eddittext after it is changed
-                search.clearFocus();
-                if (s.length() > 0) {
 
                 }
 
-                if (s.length() == 0) {
 
-                }
+
             }
         });
 
+        if(scrollToUser!=null){
 
-        RecyclerView mycontacts = findViewById(R.id.mycontacts);
-        LinearLayoutManager horizontalLayoutManager
-                = new LinearLayoutManager(MapsActivity.this, LinearLayoutManager.HORIZONTAL, false);
-        mycontacts.setLayoutManager(horizontalLayoutManager);
-        contactAdapter = new ContactAdapter(this, getMyContacts(), new ContactAdapter.OnItemClickListener() {
+            mycontacts.scrollToPosition(myContactsUsersList.indexOf(scrollToUser));
+
+        }else{
+
+            myContactsLayoutManager.smoothScrollToPosition(mycontacts, null, lastContactsPosition);
+
+        }
+        middleCons.removeAllViews();
+        middleCons.addView(myContactsView, ConstraintLayout.LayoutParams.MATCH_PARENT,ConstraintLayout.LayoutParams.MATCH_PARENT);
+
+
+    }
+
+    private String getRequestUrl(LatLng origin, LatLng dest) {
+
+        String str_org= "origin=" + origin.latitude +","+origin.longitude;
+        String str_dest= "destination=" + dest.latitude +","+dest.longitude;
+        String sensor = "sensor=false";
+        String mode = "mode=walking";
+        String param=str_org+"&"+str_dest+"&"+sensor+"&"+mode;
+        String output="json";
+        String url= "https://maps.googleapis.com/maps/api/directions/"+output+"?"+param+"&"+"key="+"AIzaSyDyF6cf1FvOZ7aqQhucZFvQJKYh0B2oRmQ";
+
+        return url;
+    }
+
+    private String requestDirection(String reqUrl) throws IOException {
+        String resposeString="";
+        InputStream inputStream=null;
+        HttpURLConnection httpURLConnection=null;
+        try {
+            URL url= new URL(reqUrl);
+            httpURLConnection=(HttpURLConnection) url.openConnection();
+            httpURLConnection.connect();
+
+            // get directions response
+            inputStream=httpURLConnection.getInputStream();
+            InputStreamReader inputStreamReader=new InputStreamReader(inputStream);
+            BufferedReader bufferedReader=new BufferedReader(inputStreamReader);
+
+            StringBuffer stringBuffer=new StringBuffer();
+
+            String line=null;
+            while((line=bufferedReader.readLine()) != null){
+                stringBuffer.append(line);
+            }
+
+            resposeString=stringBuffer.toString();
+            bufferedReader.close();
+            inputStreamReader.close();
+
+
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        finally {
+            if(inputStream!=null){
+                inputStream.close();
+            }
+            httpURLConnection.disconnect();
+        }
+
+
+        return resposeString;
+    }
+
+
+
+    public  class TaskRequestDirections extends AsyncTask<String, Void, String>{
+
+        @Override
+        protected String doInBackground(String... strings) {
+            String responseString="";
+
+            try {
+               responseString=requestDirection(strings[0]);
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return responseString;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            TaskParser taskParser=new TaskParser();
+            taskParser.execute(s);
+        }
+    }
+
+
+    public class  TaskParser extends AsyncTask<String,Void, List<List<HashMap<String,String>>>>{
+
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(String... strings) {
+            JSONObject jsonObject=null;
+
+            List<List<HashMap<String,String>>> routes=null;
+
+            try {
+                jsonObject=new JSONObject(strings[0]);
+                DirectionsParser directionsParser=new DirectionsParser();
+                routes=directionsParser.parse(jsonObject);
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+
+            return routes;
+        }
+
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> lists) {
+
+            ArrayList<LatLng> points=null;
+            PolylineOptions polylineOptions=null;
+
+            for(List<HashMap<String, String>> path:lists){
+
+                points=new ArrayList<LatLng>();
+                polylineOptions=new PolylineOptions();
+
+                for(HashMap<String, String> point:path){
+                   double lat= Double.parseDouble(point.get("lat"));
+                    double lon= Double.parseDouble(point.get("lng"));
+
+                    points.add(new LatLng(lat,lon));
+
+                }
+
+                polylineOptions.addAll(points);
+                polylineOptions.width(15);
+                polylineOptions.color(Color.BLUE);
+                polylineOptions.geodesic(true);
+            }
+
+            if(polylineOptions!=null){
+                polyline = mMap.addPolyline(polylineOptions);
+
+                mainCons.setVisibility(View.GONE);
+                findViewById(R.id.navigationCons).setVisibility(View.VISIBLE);
+
+                changeMapCamera(usermarker.getPosition(),10);
+
+            }
+            else{
+                Toast.makeText(getApplicationContext(),"No direction Found",Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+   private void showCameraScanner() {
+
+        mScannerView = new ZXingScannerView(getApplicationContext());
+        myMainDialog.setContentView(mScannerView);
+        myMainDialog.show();
+        int currentapiVersion = android.os.Build.VERSION.SDK_INT;
+        if (currentapiVersion >= android.os.Build.VERSION_CODES.M) {
+            if (checkPermission()) {
+                if (mScannerView == null) {
+                    mScannerView = new ZXingScannerView(getApplicationContext());
+                    myMainDialog.setContentView(mScannerView);
+                    myMainDialog.show();
+
+                }
+                mScannerView.setResultHandler(MapsActivity.this);
+                mScannerView.startCamera();
+
+            } else {
+                requestPermission();
+            }
+        }
+    }
+
+    ArrayList<User> allUsersList = new ArrayList<User>();
+    HashMap<User, String> hashMap = new HashMap<User, String>();
+    AllUsersRecycleViewAdaptor allUsersRecycleViewAdaptor;
+
+
+    ValueEventListener getAllUserListener;
+    DatabaseReference allUsersReference;
+
+    private void getAllUsersData() {
+        allUsersReference = mFirebaseDatabaseReference.child("Users");
+        getAllUserListener = allUsersReference.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    allUsersList.clear();
+                    for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()) {
+                        String id = dataSnapshot1.child("userID").getValue(String.class);
+                        String name = dataSnapshot1.child("userName").getValue(String.class);
+                        String email = dataSnapshot1.child("userEmail").getValue(String.class);
+                        String photoUri = dataSnapshot1.child("photoUri").getValue(String.class);
+                        String accountMode = (dataSnapshot1.child("accountMode").getValue(String.class));
+
+                        String activeStatus = dataSnapshot1.child("userActive").child("activeStatus").getValue(String.class);
+                        String activeStatusShareSetting = dataSnapshot1.child("userActive").child("activeStatusShareSetting").getValue(String.class);
+                        String timestamp = dataSnapshot1.child("userActive").child("timestamp").getValue(String.class);
+
+                        UserActive userActive = new UserActive(activeStatus, activeStatusShareSetting, timestamp);
+
+                        String locationTrackingStatus = dataSnapshot1.child("locationTracking").child("locationTrackingStatus").getValue(String.class);
+
+                        String latitude = dataSnapshot1.child("locationTracking").child("userLatLng").child("latitude").getValue(String.class);
+                        String longitude = dataSnapshot1.child("locationTracking").child("userLatLng").child("longitude").getValue(String.class);
+
+                        UserLatLng friendUserLatLng = new UserLatLng(latitude, longitude);
+                        LocationTracking locationTracking = new LocationTracking(locationTrackingStatus, friendUserLatLng);
+
+                        User newUser = new User(id, name, email, photoUri, accountMode, userActive, locationTracking);
+
+
+                        // && !id.equals(userId) missing
+                        if (id != null  && accountMode != null && accountMode.equals("public") && !id.equals(userId)) {
+                            if(!allUsersList.contains(newUser)){
+                                allUsersList.add(newUser);
+                            }
+
+                        }
+
+
+
+
+                    }
+
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    private boolean mylocationTracking = false;
+    Button businessRegisterDoneButton;
+    Button businessRegisterCancelButton;
+
+    private void showSettingDialog() {
+
+        myMainDialog.setContentView(R.layout.setting);
+        myMainDialog.show();
+        Switch accountModeSwitch = myMainDialog.findViewById(R.id.accountModeSwitch);
+        Switch locationSwitch = myMainDialog.findViewById(R.id.locationSwitch);
+        Switch activeStatusShareSetting = myMainDialog.findViewById(R.id.activeStatusShareSetting);
+        if (mylocationTracking) {
+            locationSwitch.setChecked(true);
+        } else {
+            locationSwitch.setChecked(false);
+
+        }
+        locationSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    Toast toast = Toast.makeText(getApplicationContext(), "Location Sharing Started",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+                    mylocationTracking = true;
+                    locationSwitch.setChecked(true);
+                    mFirebaseDatabaseReference.child("Users").child(userId).child("locationTracking").child("locationTrackingStatus").setValue("true");
+                } else {
+                    // The toggle is disabled
+                    Toast toast = Toast.makeText(getApplicationContext(), "Location Sharing ended",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+                    if (usermarker != null) {
+                        usermarker.setVisible(false);
+                    }
+
+                    mFirebaseDatabaseReference.child("Users").child(userId).child("locationTracking").child("locationTrackingStatus").setValue("false");
+                    locationSwitch.setChecked(false);
+                    mylocationTracking = false;
+                }
+            }
+        });
+
+
+        if (activeStatusShareSettingValue.equals("true")) {
+            activeStatusShareSetting.setChecked(true);
+        } else {
+            activeStatusShareSetting.setChecked(false);
+
+        }
+        activeStatusShareSetting.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    Toast toast = Toast.makeText(getApplicationContext(), "You are activeStatusShareSetting now.",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+                    activeStatusShareSetting.setChecked(true);
+                    userActiveStatus("true");
+                } else {
+                    // The toggle is disabled
+                    Toast toast = Toast.makeText(getApplicationContext(), "You are inactive now",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+
+                    userActiveStatus("false");
+                    activeStatusShareSetting.setChecked(false);
+
+                }
+            }
+        });
+
+        if (myDetails != null) {
+            if (myDetails.getAccountMode().equals("public")) {
+                accountModeSwitch.setChecked(true);
+            } else {
+                accountModeSwitch.setChecked(false);
+            }
+        }
+        accountModeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    Toast toast = Toast.makeText(getApplicationContext(), "Your Account is Visible now.",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+                    accountModeSwitch.setChecked(true);
+                    userAccountPublic("public");
+                } else {
+                    // The toggle is disabled
+                    Toast toast = Toast.makeText(getApplicationContext(), "Your Account is Hidden now.",
+                            Toast.LENGTH_SHORT);
+                    toast.setGravity(Gravity.TOP, 0, 250);
+                    toast.show();
+
+                    userAccountPublic("hidden");
+                    accountModeSwitch.setChecked(false);
+
+                }
+            }
+        });
+
+
+    }
+
+
+    Dialog businessFormDialog;
+    int PICK_BUSINESS_PROFILE_IMAGE_REQUEST = 222;
+    String newBusinessID;
+    ConstraintLayout businessImageViewCons;
+    ConstraintLayout extraInfoCons;
+    ProgressBar progressBar2;
+    ImageView businessImage;
+    String newBusinessImageUri = "";
+    String businessCategory = "bar";
+
+
+    HashMap<String, Marker> friendMarkerHashMap = new HashMap<String, Marker>();
+    Handler friendLocationHandler = new Handler();
+
+    private void getfriendLocations() {
+
+        for (Contact contact : connectedContacts) {
+
+            String friendId = "";
+
+            if (contact.getSenderID().equals(userId)) {
+                friendId = contact.getReceiverID();
+            } else if (contact.getReceiverID().equals(userId)) {
+                friendId = contact.getSenderID();
+            }
+
+            try {
+                for (User newUser : myContactsUsersList) {
+
+                    if (newUser.getUserID().equals(friendId)) {
+
+                        if (newUser.getLocationTracking().getLocationTrackingStatus().equals("true")) {
+                            View userMarkerView = getLayoutInflater().inflate(R.layout.imageviewmarker, null);
+                            ImageView userImage = userMarkerView.findViewById(R.id.image);
+                            ConstraintLayout markerbg = userMarkerView.findViewById(R.id.markerbg);
+                            //markerbg.setBackground(getResources().getDrawable(R.drawable.friendmarker));
+
+
+
+                                double lattitude=Double.valueOf(newUser.getLocationTracking().getUserLatLng().getLatitude());
+                                double longitude=Double.valueOf(newUser.getLocationTracking().getUserLatLng().getLongitude());
+                                LatLng friendLatLng = new LatLng(lattitude,longitude);
+
+
+                                Picasso.get()
+                                        .load(newUser.getPhotoUri())
+                                        .into(userImage, new com.squareup.picasso.Callback() {
+                                            @Override
+                                            public void onSuccess() {
+
+
+                                                Bitmap bmp = createBitmapFromView(userMarkerView);
+
+                                                BitmapDescriptor icon = BitmapDescriptorFactory.fromBitmap(Bitmap.createScaledBitmap(bmp, 180, 180, false));
+                                                Marker friendMarker;
+
+                                                if(mMap!=null){
+                                                    if (friendMarkerHashMap.containsKey(newUser.getUserID())) {
+                                                        friendMarker = friendMarkerHashMap.get(newUser.getUserID());
+                                                        friendMarker.setPosition(friendLatLng);
+                                                        friendMarker.setVisible(true);
+                                                    } else {
+                                                        friendMarker = mMap.addMarker(new MarkerOptions()
+                                                                .position(friendLatLng).title(newUser.getUserName())
+                                                                .visible(true).icon(icon));
+                                                        friendMarker.setTag(newUser.getUserID());
+
+                                                        friendMarkerHashMap.put(newUser.getUserID(), friendMarker);
+                                                    }
+
+
+                                                    if (usermarker != null) {
+                                                        Location friendLocation = new Location("");
+                                                        friendLocation.setLatitude(friendMarker.getPosition().latitude);
+                                                        friendLocation.setLongitude(friendMarker.getPosition().longitude);
+
+                                                        Location myLocation = new Location("");
+                                                        myLocation.setLatitude(usermarker.getPosition().latitude);
+                                                        myLocation.setLongitude(usermarker.getPosition().longitude);
+
+
+                                                        double distanceDifference = myLocation.distanceTo(friendLocation);
+                                                        double distance = (int) (Math.round(distanceDifference));
+                                                        if (distance > 1000) {
+                                                            distance = distance / 1000;
+                                                            friendMarker.setSnippet(distance + " Km away");
+                                                        } else {
+                                                            friendMarker.setSnippet(distance + " meters away");
+                                                        }
+                                                    }
+                                                }
+
+                                                bmp.recycle();
+
+                                            }
+
+                                            @Override
+                                            public void onError(Exception e) {
+
+                                            }
+                                        });
+
+
+
+
+                        } else {
+
+                            if (friendMarkerHashMap.get(newUser.getUserID()) != null) {
+                                friendMarkerHashMap.get(newUser.getUserID()).setVisible(false);
+                            }
+                        }
+
+                    }
+
+                }
+            } catch (Exception ex) {
+                // Here we are logging the exception to see why it happened.
+                Log.e(TAG, ex.toString());
+            }
+
+
+        }
+
+
+    }
+
+
+    private Bitmap createBitmapFromView(View view) {
+
+            DisplayMetrics displayMetrics = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+            view.setLayoutParams(new ViewGroup.LayoutParams(52, ViewGroup.LayoutParams.WRAP_CONTENT));
+            view.measure(displayMetrics.widthPixels, displayMetrics.heightPixels);
+            view.layout(0, 0, displayMetrics.widthPixels, displayMetrics.heightPixels);
+            Bitmap bitmap = Bitmap.createBitmap(view.getMeasuredWidth(), view.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            view.draw(canvas);
+
+        return bitmap;
+
+    }
+
+
+    ChatRoomsListViewAdaptor chatRoomsListviewAdaptor;
+    FriendRequestAdaptor messageFriendRequestAdaptor;
+    Boolean createGroupStatusAvailable;
+    ConstraintLayout eachMessageChatView;
+
+    DatabaseReference messageRoomsReference;
+    Dialog myMainDialog;
+    ConstraintLayout messageView;
+    LinearLayout messageviewLayout;
+
+    public static boolean messageDialogActive = false;
+
+    private void showMyMessages() {
+        createGroupStatusAvailable = false;
+        messageDialogActive = true;
+
+        View myMessagesView = getLayoutInflater().inflate(R.layout.mymessages,null,true);
+
+
+
+        messageView = myMessagesView.findViewById(R.id.messageView);
+
+        messageviewLayout=myMessagesView.findViewById(R.id.messageviewLayout);
+        messageviewLayout.setOnClickListener(this);
+        RecyclerView myChatRoomRecycleView = myMessagesView.findViewById(R.id.myMessages);
+
+
+        ConstraintLayout composingLayout = myMessagesView.findViewById(R.id.composingLayout);
+        ImageButton composeMessage = myMessagesView.findViewById(R.id.composeMessage);
+        TextView composeHeader = myMessagesView.findViewById(R.id.composeHeader);
+
+        LinearLayoutManager horizontalLayoutManager2
+                = new LinearLayoutManager(getApplicationContext(), RecyclerView.VERTICAL, false);
+        myChatRoomRecycleView.setLayoutManager(horizontalLayoutManager2);
+
+        chatRoomsListviewAdaptor = new ChatRoomsListViewAdaptor(chatRoomList, allUsersList, new ChatRoomsListViewAdaptor.OnItemClickListener() {
+            @Override
+            public void onViewClick(ChatRoom chatRoom) {
+            Log.e("click","click");
+                showeachChatView(chatRoom);
+            }
+
+            @Override
+            public void onViewLongClick(ChatRoom chatRoom) {
+
+            }
+
+            @Override
+            public void onDeleteChatRoom(ChatRoom chatRoom,int position) {
+                chatRoomList.remove(chatRoom);
+                Log.e("Chat Room Deleted","True");
+                chatRoomsListviewAdaptor.notifyItemRemoved(position);
+            }
+        });
+        myChatRoomRecycleView.setAdapter(chatRoomsListviewAdaptor);
+
+
+        ArrayList<Contact> groupMembers = new ArrayList<Contact>();
+        RecyclerView mycontacts = myMessagesView.findViewById(R.id.myContacts);
+        LinearLayoutManager horizontalLayoutManager1
+                = new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false);
+        mycontacts.setLayoutManager(horizontalLayoutManager1);
+        messageFriendRequestAdaptor = new FriendRequestAdaptor(connectedContacts, allUsersList, new FriendRequestAdaptor.OnItemClickListener() {
             @Override
             public void onViewClick(Contact contact) {
 
 
-
-                friendID = "";
+                composingLayout.setVisibility(View.GONE);
+                myChatRoomRecycleView.setVisibility(View.VISIBLE);
+                composeMessage.setBackgroundResource(R.drawable.composemessage);
+                String friendID = "";
                 if (contact.getSenderID().equals(userId)) {
                     friendID = contact.getReceiverID();
                 } else if (contact.getReceiverID().equals(userId)) {
                     friendID = contact.getSenderID();
                 }
 
-                for(Marker marker:friendMarkerList){
-                    if(friendID.equals(marker.getTag())){
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.getPosition(), 18));
-                        marker.showInfoWindow();
-                    }
-                }
 
+                for (ChatRoom chatRoom : chatRoomList) {
+                    HashMap<String, ChatRoomUser> chatRoomUserHashMap =(HashMap<String, ChatRoomUser>) chatRoom.getChatRoomUsers();
 
-            }
+                    if (chatRoomUserHashMap.containsKey(friendID)) {
 
-            @Override
-            public void onDelete(Contact contact) {
-
-            }
-
-            @Override
-            public void onAccept(Contact contact) {
-
-            }
-        });
-        mycontacts.setAdapter(contactAdapter);
-        if (connectedContacts.size() == 0) {
-            no_contact_status.setVisibility(View.VISIBLE);
-        } else {
-            no_contact_status.setVisibility(View.INVISIBLE);
-        }
-
-        ImageView friendrequestbutton = findViewById(R.id.friendrequestbutton);
-
-        friendrequestbutton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showFriendRequests();
-            }
-        });
-
-
-
-
-
-    }
-
-    private void showSettingDialog() {
-
-        View settingView=getLayoutInflater().inflate(R.layout.setting,null);
-        Dialog settingDialog=new Dialog(MapsActivity.this);
-        settingDialog.setContentView(settingView);
-        settingDialog.show();
-    }
-
-    ArrayList<LatLng> friendLocations=new ArrayList<>();
-
-    String friendId="";
-    String friendPhotoUri="";
-    LatLng friendLatLng=new LatLng(0,0);
-    View friendMarkerView;
-    private void getfriendLocations() {
-
-        for(Contact contact:connectedContacts){
-
-
-            if(contact.getSenderID().equals(userId)){
-                friendId=contact.getReceiverID();
-            }
-            else if(contact.getReceiverID().equals(userId)){
-                friendId=contact.getSenderID();
-            }
-
-            mFirebaseDatabaseReference.child("Location Updates").child(friendId).addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    if(dataSnapshot.exists()){
-                        Log.d("Location",dataSnapshot.child("latitude").getValue(double.class).toString());
-                        double latitude=dataSnapshot.child("latitude").getValue(double.class);
-                        double longitude=dataSnapshot.child("longitude").getValue(double.class);
-                        friendLatLng = new LatLng(latitude,longitude);
-                        mFirebaseDatabaseReference.child("Users").child("Consumers").child(friendId).addValueEventListener(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                if (dataSnapshot.exists()) {
-                                    friendPhotoUri = dataSnapshot.child("photoUri").getValue(String.class);
-                                    String friendName = dataSnapshot.child("consumerName").getValue(String.class);
-                                    friendMarkerView=getLayoutInflater().inflate(R.layout.imageviewmarker,null);
-                                    ImageView friendImage=friendMarkerView.findViewById(R.id.friendImage);
-
-
-                                    Picasso.get()
-                                            .load(friendPhotoUri)
-                                            .into(friendImage, new com.squareup.picasso.Callback() {
-                                                @Override
-                                                public void onSuccess() {
-                                                    Bitmap bmp =  createBitmapFromView(MapsActivity.this,friendMarkerView);
-
-                                                    BitmapDescriptor icon = BitmapDescriptorFactory.fromBitmap(Bitmap.createScaledBitmap(bmp, 180, 180, false));
-
-
-                                                    Marker friendMarker = mMap.addMarker(new MarkerOptions()
-                                                            .position(friendLatLng).title(friendName)
-                                                            .visible(true).icon(icon));
-                                                    friendMarker.setTag(friendId);
-                                                    for(Marker marker:friendMarkerList){
-                                                        if(friendId.equals(marker.getTag())){
-                                                            marker.remove();
-                                                        }
-                                                    }
-                                                    friendMarkerList.add(friendMarker);
-                                                    friendMarker.showInfoWindow();
-                                                }
-
-                                                @Override
-                                                public void onError(Exception e) {
-
-                                                }
-                                            });
-
-
-                                }
-
-                            }
-
-                            @Override
-                            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                            }
-                        });
+                        showeachChatView(chatRoom);
 
                     }
 
-
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                }
-            });
-
-
-
-
-        }
-
-    }
-
-
-    private Bitmap createBitmapFromView(Context context, View view) {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        ((Activity) context).getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        view.setLayoutParams(new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT));
-
-        view.measure(displayMetrics.widthPixels, displayMetrics.heightPixels);
-        view.layout(0, 0, displayMetrics.widthPixels, displayMetrics.heightPixels);
-        view.buildDrawingCache();
-        Bitmap bitmap = Bitmap.createBitmap(view.getMeasuredWidth(), view.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
-
-        Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
-
-        return bitmap;
-    }
-
-    public Bitmap getCroppedBitmap(Bitmap bitmap) {
-        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(),
-                bitmap.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
-
-        final int color = 0xff424242;
-        final Paint paint = new Paint();
-        final Rect rect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
-
-        paint.setAntiAlias(true);
-        canvas.drawARGB(0, 0, 0, 0);
-        paint.setColor(color);
-        // canvas.drawRoundRect(rectF, roundPx, roundPx, paint);
-        canvas.drawCircle(bitmap.getWidth() / 2, bitmap.getHeight() / 2,
-                bitmap.getWidth() / 2, paint);
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
-        canvas.drawBitmap(bitmap, rect, rect, paint);
-        //Bitmap _bmp = Bitmap.createScaledBitmap(output, 60, 60, false);
-        //return _bmp;
-        return output;
-    }
-
-
-    MessagesListviewAdaptor messagesListviewAdaptor;
-    ContactAdapter groupMembersAdaptor;
-    Boolean createGroupStatusAvailable;
-    ConstraintLayout eachMessageChatView;
-    RecyclerView myMessages;
-    DatabaseReference messageRoomsReference;
-    Dialog myMessagesDialog;
-
-    private void showMessageDialog() {
-        createGroupStatusAvailable = false;
-        myMessagesDialog = new Dialog(MapsActivity.this);
-        final View myMessagesView = getLayoutInflater().inflate(R.layout.mymessages, null);
-
-        myMessagesDialog.getWindow().setSoftInputMode(
-                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-
-        myMessagesDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
-            @Override
-            public void onDismiss(DialogInterface dialog) {
-                eachChatViewActive = false;
-                eachMessageChatView.setVisibility(View.INVISIBLE);
-                Toast.makeText(getApplicationContext(), "Messages View Dismiss",
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-        ConstraintLayout searchingLayout = myMessagesView.findViewById(R.id.composingLayout);
-        ConstraintLayout createGroup = myMessagesView.findViewById(R.id.createGrouplayout);
-        myMessages = myMessagesView.findViewById(R.id.myMessages);
-        eachMessageChatView = myMessagesView.findViewById(R.id.eachMessageChatView);
-
-        ImageButton composeMessage = myMessagesView.findViewById(R.id.composeMessage);
-        TextView composeHeader = myMessagesView.findViewById(R.id.composeHeader);
-        TextView composeHeader2 = myMessagesView.findViewById(R.id.composeHeader2);
-        TextView myMessageViewHeader = myMessagesView.findViewById(R.id.myMessageViewHeader);
-        ImageButton groupLayoutButton = myMessagesView.findViewById(R.id.groupLayoutButton);
-        TextView groupLayoutTextView = myMessagesView.findViewById(R.id.groupLayoutTextView);
-
-
-        LinearLayoutManager horizontalLayoutManager2
-                = new LinearLayoutManager(MapsActivity.this, RecyclerView.VERTICAL, false);
-        myMessages.setLayoutManager(horizontalLayoutManager2);
-
-        messagesListviewAdaptor = new MessagesListviewAdaptor(this, getMyChatRooms(), chatRoomHashmap, new MessagesListviewAdaptor.OnItemClickListener() {
-            @Override
-            public void onViewClick(ChatRoom chatRoom) {
-                myMessages.setVisibility(View.INVISIBLE);
-                showeachChatView(chatRoom, eachMessageChatView);
-            }
-        });
-        myMessages.setAdapter(messagesListviewAdaptor);
-
-        ArrayList<Contact> groupMembers = new ArrayList<>();
-        RecyclerView mycontacts = myMessagesView.findViewById(R.id.mycontacts);
-        LinearLayoutManager horizontalLayoutManager1
-                = new LinearLayoutManager(MapsActivity.this, LinearLayoutManager.HORIZONTAL, false);
-        mycontacts.setLayoutManager(horizontalLayoutManager1);
-        contactAdapter = new ContactAdapter(this, getMyContacts(), new ContactAdapter.OnItemClickListener() {
-            @Override
-            public void onViewClick(Contact contact) {
-
-                if (createGroupStatusAvailable) {
-
-                    if (!groupMembers.contains(contact)) {
-                        groupMembers.add(contact);
-                        groupMembersAdaptor.notifyDataSetChanged();
-                        composeHeader2.setText("Selected Members (" + groupMembers.size() + ")");
-                    }
-
-                } else if (!createGroupStatusAvailable) {
-                    searchingLayout.setVisibility(View.GONE);
-                    myMessages.setVisibility(View.VISIBLE);
-                    composeMessage.setBackgroundResource(R.drawable.composemessage);
-                    friendID = "";
-                    if (contact.getSenderID().equals(userId)) {
-                        friendID = contact.getReceiverID();
-                    } else if (contact.getReceiverID().equals(userId)) {
-                        friendID = contact.getSenderID();
-                    }
-
-
-                    for (HashMap.Entry<ChatRoom, ArrayList<String>> entry : chatRoomHashmap.entrySet()) {
-                        ChatRoom key = entry.getKey();
-                        ArrayList value = entry.getValue();
-
-                        if (value.contains(friendID) && value.contains(userId) && value.size() == 2) {
-                            showeachChatView(key, eachMessageChatView);
-
-                        }
-
-                    }
 
                 }
 
@@ -667,7 +1138,7 @@ public class MapsActivity extends FragmentActivity implements
 
             }
         });
-        mycontacts.setAdapter(contactAdapter);
+        mycontacts.setAdapter(messageFriendRequestAdaptor);
 
 
         composeMessage.setOnClickListener(new View.OnClickListener() {
@@ -675,193 +1146,264 @@ public class MapsActivity extends FragmentActivity implements
             public void onClick(View v) {
                 Log.i("Value", "tt");
 
-                if (searchingLayout.getVisibility() == View.GONE) {
-                    searchingLayout.setVisibility(View.VISIBLE);
-                    myMessages.setVisibility(View.INVISIBLE);
+                if (composingLayout.getVisibility() == View.GONE) {
+                    composingLayout.setVisibility(View.VISIBLE);
+                    myChatRoomRecycleView.setVisibility(View.GONE);
                     composeMessage.setBackgroundResource(R.drawable.delete);
-                    myMessageViewHeader.setText("New Message");
                     groupMembers.clear();
                     //groupMembersAdaptor.notifyDataSetChanged();
 
                 } else {
-                    searchingLayout.setVisibility(View.GONE);
-                    myMessages.setVisibility(View.VISIBLE);
+                    composingLayout.setVisibility(View.GONE);
+                    myChatRoomRecycleView.setVisibility(View.VISIBLE);
                     composeMessage.setBackgroundResource(R.drawable.composemessage);
-                    myMessageViewHeader.setText("My Messages");
                     composeHeader.setText("Send Message To : ");
-                    composeHeader2.setText("OR");
-                    groupLayoutButton.setBackgroundResource(R.drawable.contacts);
-                    groupLayoutTextView.setText("Create Group");
-                    createGroupStatusAvailable = false;
                 }
 
 
             }
         });
 
+        middleCons.removeAllViews();
+       middleCons.addView(myMessagesView, ConstraintLayout.LayoutParams.MATCH_PARENT, ConstraintLayout.LayoutParams.MATCH_PARENT);
 
-        createGroup.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                if (groupMembers.size() > 0) {
-                    final Dialog roomNameDialog = new Dialog(MapsActivity.this);
-                    final View edittextandbuttonView = getLayoutInflater().inflate(R.layout.edittextandbutton, null);
-
-                    ImageButton setRoomButtom = edittextandbuttonView.findViewById(R.id.setRoomButtom);
-                    EditText roomName = edittextandbuttonView.findViewById(R.id.roomName);
-
-                    setRoomButtom.setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            Log.i("Size", ":" + groupMembers.size());
-                            if (roomName.getText().toString().length() > 0 && groupMembers.size() >= 2) {
-                                roomNameDialog.dismiss();
-                                searchingLayout.setVisibility(View.GONE);
-                                myMessages.setVisibility(View.VISIBLE);
-                                composeMessage.setBackgroundResource(R.drawable.composemessage);
-                                myMessageViewHeader.setText("My Messages");
-                                composeHeader.setText("Send Message To : ");
-                                composeHeader2.setText("OR");
-                                groupLayoutButton.setBackgroundResource(R.drawable.contacts);
-                                groupLayoutTextView.setText("Create Group");
-                                createGroupStatusAvailable = false;
-
-                                messageRoomsReference = mFirebaseDatabaseReference.child("Messages Rooms").push();
-                                String roomID = messageRoomsReference.getKey();
-                                mFirebaseDatabaseReference.child("Messages Room Names").child(roomID).setValue(roomName.getText().toString());
-                                ArrayList<String> chatroomUsers = new ArrayList<>();
-                                for (Contact contact : groupMembers) {
-                                    friendID = "";
-                                    if (contact.getSenderID().equals(userId)) {
-                                        friendID = contact.getReceiverID();
-                                    } else if (contact.getReceiverID().equals(userId)) {
-                                        friendID = contact.getSenderID();
-                                    }
-                                    chatroomUsers.add(friendID);
-                                }
-
-                                chatroomUsers.add(userId);
-                                messageRoomsReference.setValue(chatroomUsers);
-                                dd = mFirebaseDatabaseReference.child("Messages").child(roomID).push();
-                                long currentDateTime = System.currentTimeMillis();
-                                Message mes1 = new Message(roomName.getText().toString() + " room created.Get active in Groups", dd.getKey(), String.valueOf(currentDateTime), "auto", "sent");
-                                dd.setValue(mes1);
-
-
-                                groupMembers.clear();
-                                groupMembersAdaptor.notifyDataSetChanged();
-
-                            } else {
-                                roomName.setTextColor(Color.RED);
-                                roomName.setHint("Room Name Empty");
-
-                            }
-                        }
-                    });
-                    roomNameDialog.setContentView(edittextandbuttonView);
-                    roomNameDialog.show();
-
-                } else {
-                    myMessageViewHeader.setText("Creating Group");
-                    composeHeader.setText("Choose At least two Members for Group : ");
-                    composeHeader2.setText("Selected Members (" + groupMembers.size() + ")");
-                    createGroupStatusAvailable = true;
-
-                    groupLayoutButton.setBackgroundResource(R.drawable.accept);
-                    groupLayoutTextView.setText("DONE");
-
-                    RecyclerView selectedGroupMembersListView = myMessagesView.findViewById(R.id.selectedGroupMembersListView);
-                    LinearLayoutManager horizontalLayoutManager3
-                            = new LinearLayoutManager(MapsActivity.this, LinearLayoutManager.HORIZONTAL, false);
-                    selectedGroupMembersListView.setLayoutManager(horizontalLayoutManager3);
-                    groupMembersAdaptor = new ContactAdapter(getApplicationContext(), groupMembers, new ContactAdapter.OnItemClickListener() {
-                        @Override
-                        public void onViewClick(Contact contact) {
-                            groupMembers.remove(contact);
-                            groupMembersAdaptor.notifyDataSetChanged();
-                            composeHeader2.setText("Selected Members (" + groupMembers.size() + ")");
-
-                        }
-
-                        @Override
-                        public void onDelete(Contact contact) {
-
-                        }
-
-                        @Override
-                        public void onAccept(Contact contact) {
-
-                        }
-                    });
-                    selectedGroupMembersListView.setAdapter(groupMembersAdaptor);
-
-                }
-            }
-        });
-
-
-        myMessagesDialog.setContentView(myMessagesView);
-        myMessagesDialog.show();
 
 
     }
 
-    ArrayList<ChatRoom> chatRoomList = new ArrayList<>();
-    HashMap<ChatRoom, ArrayList<String>> chatRoomHashmap = new HashMap<>();
+    ArrayList<ChatRoom> chatRoomList = new ArrayList<ChatRoom>();
 
-    private ArrayList<ChatRoom> getMyChatRooms() {
-        mFirebaseDatabaseReference.child("Messages Rooms").addValueEventListener(new ValueEventListener() {
+
+    ValueEventListener getMyChatRoomListener;
+    DatabaseReference myChatRoomReference;
+
+    private void getMyChatRooms() {
+        myChatRoomReference = mFirebaseDatabaseReference.child("Messages Rooms");
+        getMyChatRoomListener = myChatRoomReference.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
+
                     chatRoomList.clear();
-                    chatRoomHashmap.clear();
-                    ArrayList<ChatRoom> temchatRoomList=new ArrayList<>();
+                    unseenmessageCounter = 0;
 
 
                     for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()) {
-
+                        boolean myChatRoom = false;
                         String chatRoomActiveTime = dataSnapshot1.child("activeTime").getValue(String.class);
-                        String lastMessageID = dataSnapshot1.child("lastMessageID").getValue(String.class);
+                        String chatRoomID = dataSnapshot1.child("chatRoomID").getValue(String.class);
 
 
-                        ArrayList<String> chatRoomUsersID = new ArrayList<>();
-                        chatRoomUsersID = (ArrayList<String>) dataSnapshot1.child("chatRoomUsers").getValue();
+                        HashMap<String, ChatRoomUser> chatRoomUsers = new HashMap<String, ChatRoomUser>();
+                        HashMap<String, Message> messagesHashMap = new HashMap<String, Message>();
 
-                        if (chatRoomUsersID.contains(userId)) {
+                        for (DataSnapshot chatRoomUserDatasnapshot : dataSnapshot1.child("chatRoomUsers").getChildren()) {
+                            String chatRoomUserId = chatRoomUserDatasnapshot.child("id").getValue(String.class);
+                            String chatRoomUserTypingStatus = chatRoomUserDatasnapshot.child("typingStatus").getValue(String.class);
+                            ChatRoomUser chatRoomUser = new ChatRoomUser(chatRoomUserId, chatRoomUserTypingStatus);
 
-                            long time=Long.valueOf(chatRoomActiveTime);
-                            ChatRoom chatRoom = new ChatRoom(dataSnapshot1.getKey(), chatRoomActiveTime, chatRoomUsersID, lastMessageID);
+                            chatRoomUsers.put(chatRoomUser.getId(), chatRoomUser);
 
-                            chatRoomList.add(chatRoom);
-                            if(chatRoomList.size()>0){
-                                Log.d("list before",""+chatRoomList);
-                                for(ChatRoom chtr:chatRoomList){
-                                    if(time>Long.valueOf(chtr.getActiveTime())){
+                            if (chatRoomUser.getId().equals(userId)) {
 
-                                        Log.d("before chtr",""+chatRoomList.indexOf(chtr));
-                                        Log.d("before chatroom",""+chatRoomList.indexOf(chatRoom));
-                                        Collections.swap(chatRoomList, chatRoomList.indexOf(chatRoom), chatRoomList.indexOf(chtr));
-                                        Log.d("after chrt",""+chatRoomList.indexOf(chtr));
-                                        Log.d("after chatroom",""+chatRoomList.indexOf(chatRoom));
-                                        Log.d("list",""+chatRoomList);
+                                myChatRoom = true;
 
+                            }
+
+                        }
+                        if (myChatRoom) {
+                            for (DataSnapshot dataSnapshot2 : dataSnapshot1.child("messages").getChildren()) {
+
+                                String date = dataSnapshot2.child("date").getValue(String.class);
+                                String messageText = dataSnapshot2.child("message").getValue(String.class);
+                                String messageId2 = dataSnapshot2.child("messageId").getValue(String.class);
+                                String messageType = dataSnapshot2.child("messageType").getValue(String.class);
+                                String senderID = dataSnapshot2.child("senderID").getValue(String.class);
+
+                                if (!dataSnapshot2.child("messageSeens").exists()) {
+
+
+                                    if (senderID != null) {
+
+                                        Message message = new Message(messageText, messageId2, date, senderID, messageType);
+
+                                        if (senderID.equals(userId) || senderID.equals("auto")) {
+                                            messagesHashMap.put(message.getMessageId(), message);
+                                        }
+                                        else{
+                                            long currentTime=System.currentTimeMillis();
+                                            String deliveredTimeStamp = String.valueOf(currentTime);
+                                            String seenTimeStamp = "0";
+
+                                            ArrayList<MessageSeen> messageSeenArrayList = new ArrayList<MessageSeen>();
+                                            MessageSeen messageSeen = new MessageSeen(userId, deliveredTimeStamp, seenTimeStamp);
+                                            messageSeenArrayList.add(messageSeen);
+                                            mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoomID).child("messages").child(messageId2).child("messageSeens").child("0").setValue(messageSeen);
+
+                                            messagesHashMap.put(message.getMessageId(), message);
+                                        }
+                                    }
+
+                                } else {
+
+                                    String messageTo = dataSnapshot2.child("messageSeens").child("0").child("messageTo").getValue(String.class);
+                                    String deliveredTimeStamp = dataSnapshot2.child("messageSeens").child("0").child("deliveredTimeStamp").getValue(String.class);
+                                    String seenTimeStamp = dataSnapshot2.child("messageSeens").child("0").child("seenTimeStamp").getValue(String.class);
+
+                                    ArrayList<MessageSeen> messageSeenArrayList = new ArrayList<MessageSeen>();
+                                    MessageSeen messageSeen = new MessageSeen(messageTo, deliveredTimeStamp, seenTimeStamp);
+                                    messageSeenArrayList.add(messageSeen);
+
+                                    Message message = new Message(messageText, messageId2, date, senderID, messageType, messageSeenArrayList);
+
+                                    messagesHashMap.put(message.getMessageId(), message);
+
+                                    if (messageSeen != null && senderID != null) {
+                                        if (messageSeen.getSeenTimeStamp().equals("0") && !senderID.equals(userId)) {
+
+                                            unseenmessageCounter = 1;
+
+                                        }
                                     }
 
                                 }
 
                             }
 
-                            if (messagesListviewAdaptor != null) {
-                                messagesListviewAdaptor.notifyDataSetChanged();
+                            ChatRoom currentChatRoom = new ChatRoom(chatRoomID, chatRoomActiveTime, chatRoomUsers, messagesHashMap);
+
+
+                            if (!chatRoomList.contains(currentChatRoom)) {
+                                chatRoomList.add(currentChatRoom);
+                                Collections.sort(chatRoomList);
+
                             }
-                            chatRoomHashmap.put(chatRoom, chatRoomUsersID);
+                            if (chatRoomsListviewAdaptor != null) {
+
+                                chatRoomsListviewAdaptor.notifyDataSetChanged();
+
+                            }
+                        }
+
+
+
+                        if(footerTabModels !=null && footerTabsAdaptor!=null){
+                            if (unseenmessageCounter == 0) {
+                                footerTabModels.get(1).setNotificationCounter(0);
+                                footerTabsAdaptor.notifyDataSetChanged();
+                            } else {
+                                footerTabModels.get(1).setNotificationCounter(1);
+                                footerTabsAdaptor.notifyDataSetChanged();
+                            }
+                        }
+
+
+
+                    }
+
+
+                }
+
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
+    }
+
+
+    ArrayList<Message> activeChatroomMessages = new ArrayList<Message>();
+    ValueEventListener myMessagesListener;
+    DatabaseReference myMessagesReference;
+
+
+   private ArrayList<Message> getMyChatRoomMessages(ChatRoom chatRoom) {
+        myMessagesReference = mFirebaseDatabaseReference.child("Messages");
+        myMessagesListener = mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    activeChatroomMessages.clear();
+
+                    for (DataSnapshot dataSnapshot1 : dataSnapshot.child("messages").getChildren()) {
+
+                        String date = dataSnapshot1.child("date").getValue(String.class);
+                        String messageText = dataSnapshot1.child("message").getValue(String.class);
+                        String messageId2 = dataSnapshot1.child("messageId").getValue(String.class);
+                        String messageType = dataSnapshot1.child("messageType").getValue(String.class);
+                        String senderID = dataSnapshot1.child("senderID").getValue(String.class);
+
+                        if (!dataSnapshot1.child("messageSeens").exists()) {
+
+
+                            Message message = new Message(messageText, messageId2, date, senderID, messageType);
+
+                            if (senderID != null && (senderID.equals(userId) || senderID.equals("auto"))) {
+
+                                activeChatroomMessages.add(message);
+
+                            }
+
+
+                        } else {
+
+                            String messageTo = dataSnapshot1.child("messageSeens").child("0").child("messageTo").getValue(String.class);
+                            String deliveredTimeStamp = dataSnapshot1.child("messageSeens").child("0").child("deliveredTimeStamp").getValue(String.class);
+                            String seenTimeStamp = dataSnapshot1.child("messageSeens").child("0").child("seenTimeStamp").getValue(String.class);
+
+                            ArrayList<MessageSeen> messageSeenArrayList = new ArrayList<MessageSeen>();
+                            MessageSeen messageSeen = new MessageSeen(messageTo, deliveredTimeStamp, seenTimeStamp);
+                            messageSeenArrayList.add(messageSeen);
+
+                            if (messageId2 != null && senderID != null && !senderID.equals(userId) && !senderID.equals("auto") && eachChatViewActive) {
+                                if (messageSeen != null && messageSeen.getSeenTimeStamp().equals("0") && !messageSeen.getDeliveredTimeStamp().equals("0")) {
+                                    long currentDateTime1 = System.currentTimeMillis();
+                                    MessageSeen messageSeen1 = new MessageSeen(messageSeen.getMessageTo(), messageSeen.getDeliveredTimeStamp(), String.valueOf(currentDateTime1));
+
+                                    mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("messages").child(messageId2).child("messageSeens").child("0").setValue(messageSeen1);
+
+                                }
+
+                            }
+
+                            Message message = new Message(messageText, messageId2, date, senderID, messageType, messageSeenArrayList);
+
+                            activeChatroomMessages.add(message);
 
 
                         }
 
 
+                    }
+
+                    if (chatBoxAdaptor != null && activeChatroomMessages!=null) {
+                        Collections.sort(activeChatroomMessages);
+                        chatBoxAdaptor.notifyDataSetChanged();
+                    }
+
+                    for (DataSnapshot dataSnapshot1 : dataSnapshot.child("chatRoomUsers").getChildren()) {
+                        String chatRoomUserId = dataSnapshot1.child("id").getValue(String.class);
+                        String chatRoomUserTypingStatus = dataSnapshot1.child("typingStatus").getValue(String.class);
+                        ChatRoomUser chatRoomUser = new ChatRoomUser(chatRoomUserId, chatRoomUserTypingStatus);
+
+
+                        if (chatRoomUser != null && !chatRoomUser.getId().equals(userId) && chatRoomUser.getTypingStatus().equals("true")) {
+                            typingCons.setVisibility(View.VISIBLE);
+                            typingCons.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mediaPlayer.start();
+                                }
+                            });
+
+                        } else {
+                            typingCons.setVisibility(View.GONE);
+                            mediaPlayer.pause();
+                        }
                     }
 
 
@@ -874,29 +1416,48 @@ public class MapsActivity extends FragmentActivity implements
 
             }
         });
-
-        return chatRoomList;
+        return activeChatroomMessages;
     }
 
 
-    private ContactAdapter requestPendingContactAdapter;
-    private ContactAdapter requestContactAdapter;
-    private ArrayList<Contact> friendRequestList = new ArrayList<>();
-    private ArrayList<Contact> friendRequestPendingList = new ArrayList<>();
+    private FriendRequestAdaptor requestPendingFriendRequestAdaptor;
+    private FriendRequestAdaptor requestFriendRequestAdaptor;
+    private ArrayList<Contact> friendRequestList = new ArrayList<Contact>();
+    private ArrayList<Contact> friendRequestPendingList = new ArrayList<Contact>();
 
-    private void showFriendRequests() {
-        Dialog friendrequestsViewDialog = new Dialog(MapsActivity.this);
-        View friendrequestsView = getLayoutInflater().inflate(R.layout.friendrequests, null);
-        final ConstraintLayout requestslayout = friendrequestsView.findViewById(R.id.requestslayout);
-        final ConstraintLayout requestspendinglayout = friendrequestsView.findViewById(R.id.requestspendinglayout);
-        TextView emptystatus = friendrequestsView.findViewById(R.id.emptystatus);
+    private void showFriendRequestsDialog() {
+
+        myMainDialog.setContentView(R.layout.friendrequests);
+        myMainDialog.show();
+
+        ConstraintLayout allUsersLayout = myMainDialog.findViewById(R.id.allUsersLayout);
+        final ConstraintLayout requestslayout = myMainDialog.findViewById(R.id.requestslayout);
+        final ConstraintLayout requestspendinglayout = myMainDialog.findViewById(R.id.requestspendinglayout);
+        TextView emptystatus = myMainDialog.findViewById(R.id.emptystatus);
+        ConstraintLayout friendRequestCounter = myMainDialog.findViewById(R.id.friendRequestCounter);
 
 
-        final RecyclerView friendRequestRecycleView = friendrequestsView.findViewById(R.id.friendRequestRecycleView);
+        if (friendRequestList.size() > 0) {
+
+            friendRequestCounter.setVisibility(View.VISIBLE);
+
+        } else {
+
+            friendRequestCounter.setVisibility(View.GONE);
+
+        }
+
+
+        final RecyclerView friendRequestRecycleView = myMainDialog.findViewById(R.id.friendRequestRecycleView);
         LinearLayoutManager horizontalLayoutManager
-                = new LinearLayoutManager(MapsActivity.this, LinearLayoutManager.HORIZONTAL, false);
+                = new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false);
         friendRequestRecycleView.setLayoutManager(horizontalLayoutManager);
-        requestContactAdapter = new ContactAdapter(this, friendRequestList, new ContactAdapter.OnItemClickListener() {
+        SnapHelper snapHelper = new LinearSnapHelper(); // Or PagerSnapHelper
+        snapHelper.attachToRecyclerView(friendRequestRecycleView);
+
+
+
+        requestFriendRequestAdaptor = new FriendRequestAdaptor(friendRequestList, allUsersList, new FriendRequestAdaptor.OnItemClickListener() {
             @Override
             public void onViewClick(Contact contact) {
 
@@ -904,68 +1465,59 @@ public class MapsActivity extends FragmentActivity implements
 
             @Override
             public void onDelete(Contact contact) {
-                Toast.makeText(MapsActivity.this, "Contact Deleted :" + contact.getContactID(), Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Contact Deleted :" + contact.getContactID(), Toast.LENGTH_LONG).show();
 
                 mFirebaseDatabaseReference.child("Contacts").child(contact.getContactID()).setValue(null);
                 friendRequestList.remove(contact);
-                requestContactAdapter.notifyDataSetChanged();
+                requestFriendRequestAdaptor.notifyDataSetChanged();
             }
 
             @Override
             public void onAccept(Contact contact) {
-                Toast.makeText(MapsActivity.this, "Accepted", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Accepted", Toast.LENGTH_LONG).show();
                 friendRequestList.remove(contact);
-                friendID = "";
+                String friendID = "";
                 if (contact.getSenderID().equals(userId)) {
                     friendID = contact.getReceiverID();
                 } else if (contact.getReceiverID().equals(userId)) {
                     friendID = contact.getSenderID();
                 }
 
-                String chatRoomName = "";
-                mFirebaseDatabaseReference.child("Users").child("Consumers").child(friendID).addValueEventListener(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        if (dataSnapshot.exists()) {
-                            String consumerName = dataSnapshot.child("consumerName").getValue(String.class);
-                            String consumerEmail = dataSnapshot.child("consumerEmail").getValue(String.class);
-                            String photoUri = dataSnapshot.child("photoUri").getValue(String.class);
+                mFirebaseDatabaseReference.child("Contacts").child(contact.getContactID()).child("status").setValue("Connected");
+                requestFriendRequestAdaptor.notifyDataSetChanged();
+                messageRoomsReference = mFirebaseDatabaseReference.child("Messages Rooms").push();
+                dd = mFirebaseDatabaseReference.push();
 
-                            mFirebaseDatabaseReference.child("Contacts").child(contact.getContactID()).child("status").setValue("Connected");
-                            requestContactAdapter.notifyDataSetChanged();
-                            messageRoomsReference = mFirebaseDatabaseReference.child("Messages Rooms").push();
+                String roomID = messageRoomsReference.getKey();
 
-                            String roomID = messageRoomsReference.getKey();
-                            ArrayList<String> chatroomUsers = new ArrayList<>();
-                            chatroomUsers.add(userId);
-                            chatroomUsers.add(friendID);
 
-                            long activeTime = System.currentTimeMillis();
-                            dd = mFirebaseDatabaseReference.child("Messages").child(roomID).push();
+                HashMap<String, ChatRoomUser> chatroomUsers = new HashMap<String, ChatRoomUser>();
+                ChatRoomUser chatRoomUser1 = new ChatRoomUser(friendID, "false");
+                ChatRoomUser chatRoomUser2 = new ChatRoomUser(userId, "false");
 
-                            ChatRoom chatRoom = new ChatRoom(roomID, String.valueOf(activeTime), chatroomUsers, dd.getKey());
+                chatroomUsers.put(chatRoomUser1.getId(), chatRoomUser1);
+                chatroomUsers.put(chatRoomUser2.getId(), chatRoomUser2);
 
-                            messageRoomsReference.setValue(chatRoom);
 
-                            long currentDateTime = System.currentTimeMillis();
-                            Message mes1 = new Message("Connection Created. Start by Chatting with Friends", dd.getKey(), String.valueOf(currentDateTime), "auto", "sent");
-                            dd.setValue(mes1);
+                long currentDateTime = System.currentTimeMillis();
 
-                        }
+                ArrayList<MessageSeen> messageSeenArrayList = new ArrayList<MessageSeen>();
 
-                    }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                Message mes1 = new Message("Connection Created. Start by Chatting with Friends", dd.getKey(), String.valueOf(currentDateTime), "auto", "auto", messageSeenArrayList);
 
-                    }
-                });
+                HashMap<String, Message> messages = new HashMap<String, Message>();
+                messages.put(mes1.getMessageId(), mes1);
+
+                ChatRoom chatRoom = new ChatRoom(roomID, String.valueOf(currentDateTime), chatroomUsers, messages);
+
+                messageRoomsReference.setValue(chatRoom);
 
 
             }
         });
 
-        requestPendingContactAdapter = new ContactAdapter(this, friendRequestPendingList, new ContactAdapter.OnItemClickListener() {
+        requestPendingFriendRequestAdaptor = new FriendRequestAdaptor(friendRequestPendingList, allUsersList, new FriendRequestAdaptor.OnItemClickListener() {
             @Override
             public void onViewClick(Contact contact) {
 
@@ -974,201 +1526,219 @@ public class MapsActivity extends FragmentActivity implements
             @Override
             public void onDelete(final Contact contact) {
 
-                Toast.makeText(MapsActivity.this, "Contact Deleted :" + contact.getContactID(), Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Contact Deleted :" + contact.getContactID(), Toast.LENGTH_LONG).show();
 
                 mFirebaseDatabaseReference.child("Contacts").child(contact.getContactID()).setValue(null);
                 friendRequestPendingList.remove(contact);
-                requestPendingContactAdapter.notifyDataSetChanged();
+                requestPendingFriendRequestAdaptor.notifyDataSetChanged();
 
             }
 
             @Override
             public void onAccept(Contact contact) {
-                Toast.makeText(MapsActivity.this, "ACCEPT", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "ACCEPT", Toast.LENGTH_LONG).show();
             }
         });
 
-        friendRequestRecycleView.setAdapter(requestContactAdapter);
+
 
         requestslayout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                friendRequestRecycleView.setAdapter(requestContactAdapter);
+                friendRequestRecycleView.setAdapter(requestFriendRequestAdaptor);
                 requestspendinglayout.setBackgroundResource(0);
-                requestslayout.setBackgroundResource(R.drawable.white_roundedbox);
+                requestslayout.setBackgroundResource(R.drawable.greenround);
             }
         });
 
         requestspendinglayout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                friendRequestRecycleView.setAdapter(requestPendingContactAdapter);
+                friendRequestRecycleView.setAdapter(requestPendingFriendRequestAdaptor);
                 requestslayout.setBackgroundResource(0);
-                requestspendinglayout.setBackgroundResource(R.drawable.white_roundedbox);
-                // friendRequestRecycleView.setBackgroundResource(R.drawable.mychatbox);
+                requestspendinglayout.setBackgroundResource(R.drawable.greenround);
+
             }
         });
 
-        friendrequestsViewDialog.setContentView(friendrequestsView);
-        friendrequestsViewDialog.show();
+
+        friendRequestRecycleView.setAdapter(requestFriendRequestAdaptor);
         requestspendinglayout.setBackgroundResource(0);
 
     }
 
-    String friendID = "";
+
     String messageId = "";
     private View eachchatView;
-    private ListView messagelistview;
-    ChatBoxListViewAdapter chatBoxListViewAdapter;
+    private RecyclerView messageRecycleView;
     DatabaseReference newMessageReference;
 
-    ArrayList<Message> messageslist = new ArrayList<>();
+    ArrayList<Message> messageslist = new ArrayList<Message>();
     ChatRoomUsersListViewAdaptor chatRoomUserAdaptor;
-    boolean eachChatViewActive = false;
+    public static boolean eachChatViewActive = false;
+    public static ChatRoom activeChatRoom;
+    Message typingMessage;
+    ChatBoxAdaptor chatBoxAdaptor;
+    EditText writemessage;
+    String messageTo;
+    ConstraintLayout typingCons;
+    ImageView typerImage;
+    ArrayList<User> friendsData;
+    User chattingFriend=new User();
+    InputMethodManager inputMethodManager;
 
-    private void showeachChatView(ChatRoom chatRoom, ConstraintLayout eachMessageChatView) {
-        eachMessageChatView.setVisibility(View.VISIBLE);
+    private void showeachChatView(ChatRoom chatRoom) {
+
         eachChatViewActive = true;
-        eachchatView = getLayoutInflater().inflate(R.layout.contactchatview, null);
-        final ImageView contactImage = eachchatView.findViewById(R.id.contactImage);
-        final TextView roomNameTextView = eachchatView.findViewById(R.id.roomName);
-        RecyclerView chatRoomUsersListView = eachchatView.findViewById(R.id.chatRoomUsersListView);
-        ImageButton videoCall = eachchatView.findViewById(R.id.videoCall);
-        ImageButton voiceCall = eachchatView.findViewById(R.id.voiceCall);
+        activeChatRoom = chatRoom;
+        if(chatBoxAdaptor!=null){
+            activeChatroomMessages.clear();
+            chatBoxAdaptor.notifyDataSetChanged();
+        }
+
+        getMyChatRoomMessages(chatRoom);
+        footerCons.setVisibility(View.GONE);
+        setting.setVisibility(View.INVISIBLE);
+
+
+
+        View eachChatView= getLayoutInflater().inflate(R.layout.chatwindow,null);
+        middleCons.removeAllViews();
+        middleCons.addView(eachChatView, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+        final ImageView contactImage = eachChatView.findViewById(R.id.contactImage);
+        final TextView roomNameTextView = eachChatView.findViewById(R.id.roomName);
+        RecyclerView chatRoomUsersListView = eachChatView.findViewById(R.id.chatRoomUsersListView);
+        typingCons = eachChatView.findViewById(R.id.typingCons);
+        typerImage = eachChatView.findViewById(R.id.typerImage);
+
+        eachChatView.findViewById(R.id.videoCall).setOnClickListener(this);
 
 
         LinearLayoutManager horizontalLayoutManager
-                = new LinearLayoutManager(MapsActivity.this, RecyclerView.HORIZONTAL, false);
+                = new LinearLayoutManager(getApplicationContext(), RecyclerView.VERTICAL, false);
         chatRoomUsersListView.setLayoutManager(horizontalLayoutManager);
 
 
-        chatRoomUserAdaptor = new ChatRoomUsersListViewAdaptor(getApplicationContext(), chatRoomHashmap.get(chatRoom), new ChatRoomUsersListViewAdaptor.OnItemClickListener() {
+        friendsData = new ArrayList<User>();
 
-            @Override
-            public void onViewClick(String FriendID) {
+        for (Map.Entry<String, ChatRoomUser> entry : chatRoom.getChatRoomUsers().entrySet()) {
+            String key = entry.getKey();
+            ChatRoomUser chatRoomUser = entry.getValue();
+            if (!chatRoomUser.getId().equals(userId)) {
+                for (User user : myContactsUsersList) {
+                    if (chatRoomUser.getId().equals(user.getUserID())) {
+                        friendsData.add(user);
 
-            }
-
-        });
-        chatRoomUserAdaptor.notifyDataSetChanged();
-        chatRoomUsersListView.setAdapter(chatRoomUserAdaptor);
-
-        if (chatRoomHashmap.get(chatRoom).size() > 2) {
-
-            mFirebaseDatabaseReference.child("Messages Room Names").child(chatRoom.getChatRoomID()).addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    if (dataSnapshot.exists()) {
-                        String roomName = dataSnapshot.getValue(String.class);
-                        roomNameTextView.setText(roomName);
-                        roomNameTextView.setVisibility(View.VISIBLE);
                     }
-
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                }
-            });
-        } else {
-            ArrayList<String> chatRoomUsers = chatRoomHashmap.get(chatRoom);
-            for (String id : chatRoomUsers) {
-                if (id.equals(userId)) {
-
-                } else {
-                    friendID = id;
                 }
             }
+
         }
 
-        voiceCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Call call = new Call(userId, friendID, "Voice Call");
-                mFirebaseDatabaseReference.child("Calls").child(friendID).setValue(call);
+        chattingFriend=friendsData.get(0);
+        Picasso.get().load(friendsData.get(0).getPhotoUri()).fit().into(typerImage);
 
-            }
-        });
 
-        videoCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Call call = new Call(userId, friendID, "Video Call");
-                mFirebaseDatabaseReference.child("Calls").child(friendID).setValue(call);
-                startConnection();
-            }
-        });
+        chatRoomUserAdaptor = new ChatRoomUsersListViewAdaptor(friendsData);
+        chatRoomUsersListView.setAdapter(chatRoomUserAdaptor);
 
-        ImageButton backbutton = eachchatView.findViewById(R.id.backButton);
+        ImageButton backbutton = eachChatView.findViewById(R.id.backButton);
 
-        eachMessageChatView.removeAllViews();
-        eachMessageChatView.addView(eachchatView);
+
         backbutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                eachMessageChatView.removeAllViews();
-                myMessages.setVisibility(View.VISIBLE);
-                eachChatViewActive = false;
-            }
-        });
-
-        messagelistview = eachchatView.findViewById(R.id.messagelistview);
-        ImageButton addfiles = eachchatView.findViewById(R.id.addfiles);
-        addfiles.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(getApplicationContext(), "Add Files Now",
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-        final EditText writemessage = eachchatView.findViewById(R.id.writemessage);
-        final MediaPlayer sendsound = MediaPlayer.create(this, R.raw.bubble);
-        sendsound.setVolume(0.1f, 0.1f);
-        final MediaPlayer friendtypingSound = MediaPlayer.create(this, R.raw.friendtyping);
-        friendtypingSound.setVolume(0.05f, 0.05f);
-        final ImageButton send = eachchatView.findViewById(R.id.send);
-
-        chatBoxListViewAdapter = new ChatBoxListViewAdapter(MapsActivity.this, R.layout.bubble, getFriendMessageslist(chatRoom.getChatRoomID()));
-        messagelistview.setAdapter(chatBoxListViewAdapter);
+                activeChatRoom=null;
+                eachChatViewActive=false;
 
 
-        writemessage.setFocusable(true);
-
-        writemessage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (messageId.isEmpty()) {
-
-
+                footerCons.setVisibility(View.VISIBLE);
+                setting.setVisibility(View.VISIBLE);
+                if(lastFooterPosition==1){
+                    showMyMessages();
+                }
+                else if(lastFooterPosition==0){
+                    showMyContacts(null);
+                }
+                else{
+                    middleCons.removeAllViews();
                 }
 
             }
         });
-        long currentDateTime = System.currentTimeMillis();
-        newMessageReference = mFirebaseDatabaseReference.child("Messages").child(chatRoom.getChatRoomID()).push();
-        messageId = newMessageReference.getKey();
+
+        messageRecycleView = eachChatView.findViewById(R.id.messageRecycleView);
+        messageRecycleView.setOnClickListener(this);
+        writemessage = eachChatView.findViewById(R.id.writemessage);
+
+
+        ImageButton send = eachChatView.findViewById(R.id.send);
+
+        LinearLayoutManager messageRecycleViewhorizontalLayoutManager
+                = new LinearLayoutManager(getApplicationContext(), RecyclerView.VERTICAL, true);
+        messageRecycleView.setLayoutManager(messageRecycleViewhorizontalLayoutManager);
+
+
+        chatBoxAdaptor = new ChatBoxAdaptor(activeChatroomMessages, new ChatBoxAdaptor.OnItemClickListener() {
+            @Override
+            public void deleteMessage(Message message,int position) {
+
+                Toast.makeText(getApplicationContext(), "Message Deleted", Toast.LENGTH_LONG).show();
+                activeChatroomMessages.remove(message);
+                chatBoxAdaptor.notifyItemChanged(position);
+                mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("messages").child(message.getMessageId()).removeValue();
+
+            }
+
+        });
+
+        messageRecycleView.setAdapter(chatBoxAdaptor);
+
+        writemessage.setFocusable(true);
+
+
+        writemessage.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                Log.d("edittext focus", "" + hasFocus);
+                if (hasFocus) {
+
+                    newMessageReference = mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("messages").push();
+                    messageId = newMessageReference.getKey();
+
+                } else {
+
+                    inputMethodManager.hideSoftInputFromWindow(v.getWindowToken(), 0);
+
+
+                }
+            }
+        });
+
 
         writemessage.addTextChangedListener(new TextWatcher() {
 
             public void afterTextChanged(Editable s) {
+
+                Log.d("text", "" + s);
+                ArrayList<ChatRoomUser> chatRoomUsers = new ArrayList<ChatRoomUser>();
+
+                if (s.length() > 0) {
+
+                    mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("chatRoomUsers").child(userId).child("typingStatus").setValue("true");
+
+                }
+                if (s.length() == 0) {
+
+                    mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("chatRoomUsers").child(userId).child("typingStatus").setValue("false");
+
+                }
             }
 
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
             }
 
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                //s is the current character in the eddittext after it is changed
-                writemessage.clearFocus();
-                if (s.length() == 1) {
-                    Message typingMessage = new Message("...", messageId, String.valueOf(currentDateTime), userId, "typing");
-                    newMessageReference.setValue(typingMessage);
-                }
-                if (s.length() == 0 && messageId == newMessageReference.getKey()) {
-
-                    newMessageReference.removeValue();
-                }
 
 
             }
@@ -1180,50 +1750,104 @@ public class MapsActivity extends FragmentActivity implements
             @Override
             public void onClick(View v) {
                 if (writemessage.getText() != null && writemessage.getText().length() > 0) {
-                    sendsound.start();
+
+                    ArrayList<MessageSeen> messageSeenArrayList = new ArrayList<MessageSeen>();
+
                     long currentDateTime1 = System.currentTimeMillis();
-                    Message newMessage = new Message(writemessage.getText().toString(), messageId, String.valueOf(currentDateTime1), userId, "sent");
-                    newMessageReference.setValue(newMessage);
-                    newMessageReference = mFirebaseDatabaseReference.child("Messages").child(chatRoom.getChatRoomID()).push();
+                    Message newMessage = new Message(writemessage.getText().toString(), messageId, String.valueOf(currentDateTime1), userId, "textmessage", messageSeenArrayList);
+
+                    chatRoom.setActiveTime(String.valueOf(currentDateTime1));
+                    chatRoom.getMessages().put(newMessage.getMessageId(), newMessage);
                     mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("activeTime").setValue(String.valueOf(currentDateTime1));
-                    messageId = newMessageReference.getKey();
+                    mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("messages").child(newMessage.getMessageId()).setValue(newMessage);
+
                     writemessage.setText("");
+
+                    newMessageReference = mFirebaseDatabaseReference.child("Messages Rooms").child(chatRoom.getChatRoomID()).child("messages").push();
+                    messageId = newMessageReference.getKey();
 
                 }
 
             }
         });
+
     }
 
-    private ArrayList<Message> getFriendMessageslist(String chatRoomID) {
-        mFirebaseDatabaseReference.child("Messages").child(chatRoomID).addValueEventListener(new ValueEventListener() {
+
+    private void startCallingFriend(User user,String callType){
+
+        String chatRoomId="nn";
+        for(ChatRoom chatRoom:chatRoomList){
+            if(chatRoom.getChatRoomUsers().containsKey(user.getUserID()) && chatRoom.getChatRoomUsers().containsKey(userId)){
+                chatRoomId=chatRoom.getChatRoomID();
+            }
+        }
+        getIntent().putExtra("chatRoomId", chatRoomId);
+        getIntent().putExtra("callType", callType);
+        getIntent().putExtra("callMode", "outgoing");
+        mainCons.setVisibility(View.GONE);
+        overLappingCons.removeAllViews();
+        FragmentTransaction fragTransaction = getSupportFragmentManager().beginTransaction();
+
+        Fragment myCallFragment = new CallViewFragment();
+        ((CallViewFragment) myCallFragment).setUser(user);
+        fragTransaction.add(overLappingCons.getId(), myCallFragment , "callViewFragment");
+        fragTransaction.commit();
+
+
+
+    }
+
+
+    String callMode="offline"; // incoming or outgoing
+    private void showIncomingCall(User user,String callType){
+
+        overLappingCons.removeAllViews();
+
+        getIntent().putExtra("callType", callType);
+        getIntent().putExtra("callMode", "incoming");
+
+        FragmentTransaction fragTransaction = getSupportFragmentManager().beginTransaction();
+
+        Fragment myCallFragment = new CallViewFragment();
+        ((CallViewFragment) myCallFragment).setUser(user);
+        fragTransaction.add(overLappingCons.getId(), myCallFragment , "callViewFragment");
+        fragTransaction.commit();
+
+
+
+
+    }
+
+
+    ValueEventListener myIncomingCallValueEventListener;
+    private void checkForMyPhoneCalls(){
+
+        myIncomingCallValueEventListener=mFirebaseDatabaseReference.child("Calls").child(userId).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    messageslist.clear();
-                    chatBoxListViewAdapter.clear();
-                    for (DataSnapshot data : dataSnapshot.getChildren()) {
 
-                        String message1 = data.child("message").getValue(String.class);
-                        String messageid = data.child("messageId").getValue(String.class);
-                        String date = data.child("date").getValue(String.class);
-                        String senderID = data.child("senderID").getValue(String.class);
-                        String status = data.child("status").getValue(String.class);
-                        if (!senderID.equals(userId) && eachChatViewActive && !message1.equals("...")) {
-                            mFirebaseDatabaseReference.child("Messages").child(chatRoomID).child(messageid).child("status").setValue("seen");
-                            status = "seen";
-                        }
-                        if (!senderID.equals(userId) && status.equals("sent")) {
-                            mFirebaseDatabaseReference.child("Messages").child(chatRoomID).child(messageid).child("status").setValue("Delivered");
-                            status = "Delivered";
-                        }
-                        Message chatMessage = new Message(message1, messageid, date, senderID, status);
-                        messageslist.add(chatMessage);
-                        chatBoxListViewAdapter.notifyDataSetChanged();
-                        messagelistview.setSelection(messagelistview.getAdapter().getCount() - 1);
-                    }
+                if(dataSnapshot.exists()){
+                    Call call =dataSnapshot.getValue(Call.class);
 
+                        if(call.getCallStatus().equals("calling") && !call.getSessionId().equals("empty")){
+                            mainCons.setVisibility(View.GONE);
+                            for(User user:allUsersList){
+                                if(user.getUserID().equals(call.getCallerId())){
+                                    chattingFriend=user;
+                                    showIncomingCall(chattingFriend,call.getCallType());
+                                }
+                            }
+
+                        }
+
+
+
+                }else{
+                    overLappingCons.removeAllViews();
+                    mainCons.setVisibility(View.VISIBLE);
                 }
+
             }
 
             @Override
@@ -1232,23 +1856,37 @@ public class MapsActivity extends FragmentActivity implements
             }
         });
 
-        return messageslist;
     }
 
-    private ArrayList<Contact> connectedContacts = new ArrayList<>();
 
-    private ArrayList<Contact> getMyContacts() {
-        mFirebaseDatabaseReference.child("Contacts").addValueEventListener(new ValueEventListener() {
+
+
+
+    int unseenmessageCounter;
+
+
+    private ArrayList<Contact> connectedContacts = new ArrayList<Contact>();
+
+    ValueEventListener myContactsListener;
+    DatabaseReference contactsReference;
+    ArrayList<String> myAllContacts=new ArrayList<>();
+
+    private void getMyContacts() {
+        contactsReference = mFirebaseDatabaseReference.child("Contacts");
+
+        myContactsListener = contactsReference.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                myAllContacts.clear();
+                connectedContacts.clear();
+                friendRequestList.clear();
+                friendRequestPendingList.clear();
+                myContactsUsersList.clear();
                 if (dataSnapshot.exists()) {
 
-                    connectedContacts.clear();
-                    friendRequestList.clear();
-                    friendRequestPendingList.clear();
-                    if (requestContactAdapter != null && requestPendingContactAdapter != null) {
-                        requestContactAdapter.notifyDataSetChanged();
-                        requestPendingContactAdapter.notifyDataSetChanged();
+                    if (requestFriendRequestAdaptor != null && requestPendingFriendRequestAdaptor != null) {
+                        requestFriendRequestAdaptor.notifyDataSetChanged();
+                        requestPendingFriendRequestAdaptor.notifyDataSetChanged();
                     }
 
                     for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()) {
@@ -1258,24 +1896,46 @@ public class MapsActivity extends FragmentActivity implements
                         String status = dataSnapshot1.child("status").getValue(String.class);
                         Contact contact = new Contact(contactID, senderID, receiverID, status);
 
-                        if (senderID.equals(userId) || receiverID.equals(userId)) {
+                        if ((status != null && senderID != null && receiverID != null) && (senderID.equals(userId) || receiverID.equals(userId))) {
+
                             if (status.equals("Pending") && senderID.equals(userId)) {
                                 friendRequestPendingList.add(contact);
-                                if (requestPendingContactAdapter != null) {
-                                    requestPendingContactAdapter.notifyDataSetChanged();
+                                myAllContacts.add(receiverID);
+                                if (requestPendingFriendRequestAdaptor != null) {
+                                    requestPendingFriendRequestAdaptor.notifyDataSetChanged();
                                 }
                             } else if (status.equals("Connected")) {
                                 connectedContacts.add(contact);
-                                contactAdapter.notifyDataSetChanged();
-                                getfriendLocations();
 
+                                    String friendID="";
+                                    if (contact.getSenderID().equals(userId)) {
+                                        friendID = contact.getReceiverID();
+                                    } else if (contact.getReceiverID().equals(userId)) {
+                                        friendID = contact.getSenderID();
+                                    }
+                                    myAllContacts.add(friendID);
+                                    User friend = new User();
+                                    for (User searchUser : allUsersList) {
+                                        if (searchUser.getUserID().equals(friendID)) {
+                                            friend = searchUser;
+                                            myContactsUsersList.add(friend);
+                                            if (myContactsAdaptor != null) {
+                                                myContactsAdaptor.notifyDataSetChanged();
+                                            }
+                                        }
+                                    }
+
+
+                                if (friendRequestAdaptor != null) {
+                                    friendRequestAdaptor.notifyDataSetChanged();
+                                }
                             }
                             if (status.equals("Pending") && receiverID.equals(userId)) {
                                 friendRequestList.add(contact);
-                                if (requestContactAdapter != null) {
-                                    requestContactAdapter.notifyDataSetChanged();
+                                myAllContacts.add(senderID);
+                                if (requestFriendRequestAdaptor != null) {
+                                    requestFriendRequestAdaptor.notifyDataSetChanged();
                                 }
-
                             }
 
 
@@ -1283,98 +1943,183 @@ public class MapsActivity extends FragmentActivity implements
 
 
                     }
-                    if (friendRequestList.size()>0) {
 
-                        contactscounter.setVisibility(View.VISIBLE);
-                        contactscounter.setText(String.valueOf(friendRequestList.size()));
-                    }
-                    else{
-                        contactscounter.setVisibility(View.GONE);
-                    }
 
+                } else {
+                    if (requestPendingFriendRequestAdaptor != null) {
+                        requestPendingFriendRequestAdaptor.notifyDataSetChanged();
+                    }
+                    if (requestFriendRequestAdaptor != null) {
+                        requestFriendRequestAdaptor.notifyDataSetChanged();
+                    }
+                }
+                if (friendRequestList.size() > 0) {
+
+                    newFriendRequestNotifier.setVisibility(View.VISIBLE);
+
+                }else{
+                    newFriendRequestNotifier.setVisibility(View.GONE);
                 }
 
             }
+
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
 
             }
         });
-        return connectedContacts;
+
     }
 
-    int PICK_IMAGE_REQUEST = 111;
-    String userName = "";
+    int PICK_PROFILE_IMAGE_REQUEST = 111;
 
-    private void showProfileView() {
-        Dialog profileDialog = new Dialog(MapsActivity.this);
-        View profileView = getLayoutInflater().inflate(R.layout.profileview, null);
-        profileImage = profileView.findViewById(R.id.profileImage);
-        ImageView userBarCode = profileView.findViewById(R.id.userBarCode);
-        final TextView userNameTextView = profileView.findViewById(R.id.username);
-        profileDialog.setContentView(profileView);
-        profileDialog.show();
+    ImageView profileImage;
 
-        String text = "User:" + userId;
-        mFirebaseDatabaseReference.child("Users").child("Consumers").child(userId).addValueEventListener(new ValueEventListener() {
+
+    boolean createNewMeetPoint=false;
+    private void showIssueTrackerView(){
+        View issueTrackerView=getLayoutInflater().inflate(R.layout.issuetracker,null);
+        TextView header=issueTrackerView.findViewById(R.id.header);
+        EditText issueTitle=issueTrackerView.findViewById(R.id.issueTitle);
+        EditText issueDescription=issueTrackerView.findViewById(R.id.issueDescription);
+        TextView sendIssueReport=issueTrackerView.findViewById(R.id.sendReport);
+
+        sendIssueReport.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    String consumerName = dataSnapshot.child("consumerName").getValue(String.class);
-                    String consumerEmail = dataSnapshot.child("consumerEmail").getValue(String.class);
-                    String photoUri = dataSnapshot.child("photoUri").getValue(String.class);
-                    userName = consumerName;
-                    userNameTextView.setText(userName);
-                    if (photoUri != null) {
-                        Picasso.get().load(photoUri).fit().centerCrop().into(profileImage);
+            public void onClick(View view) {
+                String issueTitleString=issueTitle.getText().toString();
+                String issueDescriptionString=issueDescription.getText().toString();
+                String buttonString=sendIssueReport.getText().toString();
+                if(issueTitleString.length()>0 && issueDescriptionString.length()>0 && !buttonString.equals("Done")){
+                    Issue issue=new Issue(issueTitle.getText().toString(),issueDescription.getText().toString());
+                    mFirebaseDatabaseReference.child("Issues").push().setValue(issue);
+                    header.setText("Thank You for your Report.");
+                    sendIssueReport.setVisibility(View.GONE);
+                    issueTitle.setVisibility(View.GONE);
+                    issueDescription.setVisibility(View.GONE);
+                   // middleCons.removeAllViews();
+                }
 
-                    }
+                if(buttonString.equals("Done")){
+                    showIssueTrackerView();
+
                 }
 
             }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
         });
+        middleCons.removeAllViews();
+        middleCons.addView(issueTrackerView, ConstraintLayout.LayoutParams.MATCH_PARENT,ConstraintLayout.LayoutParams.MATCH_PARENT);
 
-        //Toast.makeText(MapsActivity.this, consumer.getconsumerEmail(), Toast.LENGTH_LONG).show();
+        createNewMeetPoint=true;
+    }
+
+    private void showProfileViewDialog() {
+
+        myMainDialog.setContentView(R.layout.profileview);
+        myMainDialog.show();
+
+
+        profileImage = myMainDialog.findViewById(R.id.userImageView);
+        ImageView userBarCode = myMainDialog.findViewById(R.id.userBarCode);
+        final TextView userNameTextView = myMainDialog.findViewById(R.id.username);
+
+
+        String text = "User:" + userId;
+
+        userNameTextView.setText(myDetails.getUserName());
+        if (myDetails.getPhotoUri() != null) {
+            Picasso.get().load(myDetails.getPhotoUri()).fit().centerCrop().into(profileImage);
+
+        }
+
         MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
         try {
             BitMatrix bitMatrix = multiFormatWriter.encode(text, BarcodeFormat.QR_CODE, 300, 300);
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
             userBarCode.setImageBitmap(bitmap);
+
         } catch (WriterException e) {
             e.printStackTrace();
         }
 
-        ImageButton uploadImage = profileView.findViewById(R.id.uploadImage);
-        userImageViewCons = profileView.findViewById(R.id.userImageViewCons);
-        progressBar = profileView.findViewById(R.id.progressBar);
-        uploadImage.setOnClickListener(v -> {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_PICK);
-            startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_IMAGE_REQUEST);
-
-        });
+        ImageButton addUserImage = myMainDialog.findViewById(R.id.addUserImage);
+        userImageViewCons = myMainDialog.findViewById(R.id.businessImageViewCons);
+        progressBar = myMainDialog.findViewById(R.id.progressBar);
+        addUserImage.setOnClickListener(this);
 
 
-        Button signOut = profileView.findViewById(R.id.signOut);
-        signOut.setOnClickListener(new View.OnClickListener() {
+        Button signOut = myMainDialog.findViewById(R.id.signOut);
+        signOut.setOnClickListener(this);
+
+
+    }
+
+    private void getMyData() {
+        getMyDataListener = myDataReference.addValueEventListener(new ValueEventListener() {
             @Override
-            public void onClick(View v) {
-                FirebaseAuth.getInstance().signOut();
-                Intent intent = new Intent(MapsActivity.this, LoginActivity.class);
-                startActivity(intent);
-                finish();
-                profileDialog.dismiss();
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                if (dataSnapshot.exists()) {
+
+                    String name = dataSnapshot.child("userName").getValue(String.class);
+                    String email = dataSnapshot.child("userEmail").getValue(String.class);
+                    String photoUri = dataSnapshot.child("photoUri").getValue(String.class);
+                    String accountMode = (dataSnapshot.child("accountMode").getValue(String.class));
+
+
+                    String activeStatus = dataSnapshot.child("userActive").child("activeStatus").getValue(String.class);
+                    String activeStatusShareSetting = dataSnapshot.child("userActive").child("activeStatusShareSetting").getValue(String.class);
+                    String timestamp = dataSnapshot.child("userActive").child("timestamp").getValue(String.class);
+
+                    UserActive userActive = new UserActive(activeStatus, activeStatusShareSetting, timestamp);
+
+                    String locationTrackingStatus = dataSnapshot.child("locationTracking").child("locationTrackingStatus").getValue(String.class);
+
+                    String latitude = dataSnapshot.child("locationTracking").child("userLatLng").child("latitude").getValue(String.class);
+                    String longitude = dataSnapshot.child("locationTracking").child("userLatLng").child("longitude").getValue(String.class);
+
+                    UserLatLng mylocation = new UserLatLng(latitude, longitude);
+                    LocationTracking locationTracking = new LocationTracking(locationTrackingStatus, mylocation);
+
+
+                    // location tracking SETTING  true / false
+                    if (locationTracking.getLocationTrackingStatus().equals("true")) {
+                        mylocationTracking = true;
+                    }
+
+                    // activeStatusShareSetting time tracking SETTING  String value true / false
+                    activeStatusShareSettingValue = userActive.getActiveStatusShareSetting();
+
+                        myDetails = new User(userId, name, email, photoUri, accountMode, userActive, locationTracking);
+
+
+                }
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
             }
         });
 
+    }
+
+    private void requestForImageUpload() {
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_PICK);
+        startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_PROFILE_IMAGE_REQUEST);
+    }
+
+    private void signOutUser() {
+        myMainDialog.dismiss();
+        Intent intent = new Intent(MapsActivity.this, LoginActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        mAuth.signOut();
 
     }
 
@@ -1397,86 +2142,104 @@ public class MapsActivity extends FragmentActivity implements
     }
 
 
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
-
     private Location location;
     Marker usermarker;
     ConstraintLayout messageCall;
+    Marker newbusinessMarker;
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        try {
+            // Customise the styling of the base map using a JSON object defined
+            // in a raw resource file.
+            boolean success = googleMap.setMapStyle(
+                    MapStyleOptions.loadRawResourceStyle(
+                            this, R.raw.style_json));
+            mMap = googleMap;
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(mMap.getCameraPosition().zoom - 0.5f));
+            if (!success) {
+                Log.e(TAG, "Style parsing failed.");
+            }
+        } catch (Resources.NotFoundException e) {
+            Log.e(TAG, "Can't find style. Error: ", e);
+        }
+
+        if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
             mMap.setMyLocationEnabled(true);
+            mMap.getUiSettings().setMyLocationButtonEnabled(false);
+            mMap.getUiSettings().setMapToolbarEnabled(false);
+
+            if (locationManager != null) {
+                isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+                if (isGpsEnabled) {
 
 
-            Criteria criteria = new Criteria();
-            String provider = locationManager.getBestProvider(criteria, true);
-            Location location = locationManager.getLastKnownLocation(provider);
-            mLastLocation = location;
-
-            startLocationUpdates();
-
-
-
+                } else {
+                    showTurnOnGpsDialog();
+                }
+            }
 
         }
-        changeMapCamera();
 
-        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
-            @Override
-            public boolean onMarkerClick(final Marker marker) {
-                if (userId.equals(marker.getTag())) {
-                    showProfileView();
-                }else{
 
-                    messageCall.setVisibility(View.VISIBLE);
-                    contactsLayout.setVisibility(View.GONE);
-                }
-                return false;
+        mMap.setOnMarkerClickListener(marker -> {
+
+            if (userId.equals(marker.getTag())) {
+                showProfileViewDialog();
             }
-        });
-
-        mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
-            @Override
-            public void onMapLongClick(final LatLng latLng) {
+            if (!userId.equals(marker.getTag())) {
 
 
-            }
-        });
+                for (User searchUser : myContactsUsersList) {
+                    if (searchUser.getUserID().equals(marker.getTag())) {
 
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-            @Override
-            public void onMapClick(final LatLng latLng) {
-                changeMapCamera();
-                //overlappingConstraint.removeAllViews();
-                contactsLayout.setVisibility(View.GONE);
-                messageCall.setVisibility(View.GONE);
+                        //showMyContacts(searchUser);
+                        footerTabsLayoutManager.smoothScrollToPosition(footerTabRecyclerView, null, 0);
 
-                if(usermarker!=null){
-                    usermarker.showInfoWindow();
+
+                    }
                 }
 
-
             }
+
+            return false;
+        });
+
+        mMap.setOnMapLongClickListener(latLng -> mMap.setOnMapLongClickListener(null));
+
+
+        mMap.setOnMapClickListener(latLng -> {
+
+
+            if (usermarker != null) {
+                usermarker.showInfoWindow();
+            }
+
+
         });
 
     }
 
 
+    private void changeMapCamera(LatLng latLng, int zoomLevel) {
+        if (latLng != null) {
+            cameraPosition = new CameraPosition.Builder()
+                    .target(latLng)      // Sets the center of the map to Mountain View
+                    .zoom(zoomLevel)                   // Sets the zoom
+                    .bearing(mCurrentLocation.getBearing())                // Sets the orientation of the camera to east
+                    .tilt(55)                   // Sets the tilt of the camera to 30 degrees
+                    .build();                   // Creates a CameraPosition from the builder
+            mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+
+        }
+    }
+
+
     public boolean checkLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this,
+        if (ContextCompat.checkSelfPermission(getApplicationContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
@@ -1509,6 +2272,7 @@ public class MapsActivity extends FragmentActivity implements
     @Override
     public void onRequestPermissionsResult(@NonNull int requestCode, @NonNull
             String permissions[], @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_LOCATION: {
                 // If request is cancelled, the result arrays are empty.
@@ -1516,24 +2280,29 @@ public class MapsActivity extends FragmentActivity implements
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                     // Permission was granted.
-                    if (ContextCompat.checkSelfPermission(this,
+                    if (ContextCompat.checkSelfPermission(getApplicationContext(),
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
 
-                        mMap.setMyLocationEnabled(true);
 
-                        Criteria criteria = new Criteria();
-                        String provider = locationManager.getBestProvider(criteria, true);
-                        Location location = locationManager.getLastKnownLocation(provider);
-                        mLastLocation = location;
-                        changeMapCamera();
-                        startLocationUpdates();
+                        if (locationManager != null) {
+                            isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+                            if (isGpsEnabled) {
+                                mMap.setMyLocationEnabled(true);
+
+                            } else {
+                                showTurnOnGpsDialog();
+                            }
+                        }
+
+
                     }
 
                 } else {
 
                     // Permission denied, Disable the functionality that depends on this permission.
-                    Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), "permission denied", Toast.LENGTH_LONG).show();
                 }
 
             }
@@ -1549,13 +2318,8 @@ public class MapsActivity extends FragmentActivity implements
                         Toast.makeText(getApplicationContext(), "Permission Denied, You cannot access and camera", Toast.LENGTH_LONG).show();
                         if (shouldShowRequestPermissionRationale(CAMERA)) {
                             showMessageOKCancel("You need to allow access to both the permissions",
-                                    new DialogInterface.OnClickListener() {
-                                        @Override
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            requestPermissions(new String[]{CAMERA},
-                                                    REQUEST_CAMERA);
-                                        }
-                                    });
+                                    (dialog, which) -> requestPermissions(new String[]{CAMERA},
+                                            REQUEST_CAMERA));
                             return;
                         }
                     }
@@ -1563,264 +2327,485 @@ public class MapsActivity extends FragmentActivity implements
                 break;
 
 
-        }
 
-        // other 'case' lines to check for other permissions this app might request.
-        //You can add here other case statements according to your requirement.
+        }
 
 
     }
 
-    private void changeMapCamera() {
-        if (mLastLocation != null) {
-            cameraPosition = new CameraPosition.Builder()
-                    .target(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()))      // Sets the center of the map to Mountain View
-                    .zoom(15)                   // Sets the zoom
-                    .bearing(0)                // Sets the orientation of the camera to east
-                    .tilt(85)                   // Sets the tilt of the camera to 30 degrees
-                    .build();                   // Creates a CameraPosition from the builder
-            mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
-
-        }
-    }
-
-    private void getIntentData() {
-        Bundle extras = getIntent().getExtras();
-        if (extras != null) {
-            Log.d("Data", getIntent().getExtras().toString());
-            Toast.makeText(this, "Click", Toast.LENGTH_SHORT).show();
-            String chatroomID = getIntent().getStringExtra("chatroomID");
-            Log.d("notification in click ", chatroomID);
-            showMessageDialog();
-            getIntent().getExtras().clear();
-        }
-    }
 
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        getIntentData();
-        if (myMessagesDialog != null && eachMessageChatView.getVisibility() == View.VISIBLE) {
-            eachChatViewActive = true;
-        }
-
-
-
-    }
-
-    private  BroadcastReceiver gpsSwitchStateReceiver = new BroadcastReceiver() {
+    private static boolean firstConnect = false;
+    boolean isGpsEnabled = false;
+    public BroadcastReceiver gpsSwitchStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
 
-            if (LocationManager.PROVIDERS_CHANGED_ACTION.equals(intent.getAction())) {
+            if (intent.getAction().matches("android.location.PROVIDERS_CHANGED")) {
+                // Make an action or refresh an already managed state.
 
-                LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-                boolean isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-                boolean isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+                if (locationManager != null) {
 
-                if (isGpsEnabled || isNetworkEnabled) {
-                    // Handle Location turned ON
-                } else {
-                    // Handle Location turned OFF
+                    isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+                    //firstConnect=isGpsEnabled;
+
+                    if (isGpsEnabled) {
+
+                        if (firstConnect) {
+
+                            myMainDialog.dismiss();
+                            myMainDialog.setCancelable(true);
+                            myMainDialog.setCanceledOnTouchOutside(true);
+                            Toast.makeText(getApplicationContext(), "Gps is ON",
+                                    Toast.LENGTH_SHORT).show();
+                            firstConnect = false;
+
+
+                        }
+
+                    } else {
+                        // Handle Location turned OFF
+                        //disable
+                        if (!firstConnect) {
+                            showTurnOnGpsDialog();
+                            Toast.makeText(getApplicationContext(), "Gps is OFF",
+                                    Toast.LENGTH_SHORT).show();
+                            firstConnect = true;
+
+                        }
+
+
+                    }
                 }
+
+
             }
+
+
         }
+
     };
 
-    @Override
-    public void onStop() {
-        super.onStop();
-        eachChatViewActive = false;
-        mFirebaseDatabaseReference.child("User-Active-time").child(userId).removeValue();
+    View turnongps;
 
-    }
+    public void showTurnOnGpsDialog() {
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        eachChatViewActive = false;
+        turnongps = getLayoutInflater().inflate(R.layout.turnongps, null);
+        Button accept = turnongps.findViewById(R.id.accept);
 
-        getMyChatRooms();
-        getIntentData();
-        mFirebaseDatabaseReference.child("User-Active-time").child(userId).removeValue();
-
-        getApplicationContext().unregisterReceiver(gpsSwitchStateReceiver);
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        IntentFilter filter = new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION);
-        filter.addAction(Intent.ACTION_PROVIDER_CHANGED);
-        getApplicationContext().registerReceiver(gpsSwitchStateReceiver, filter);
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            userId = currentUser.getUid();
-        } else {
-            Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+        accept.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
             startActivity(intent);
-        }
-        getMyChatRooms();
-        getIntentData();
+        });
 
-        mFirebaseDatabaseReference.child("User-Active-time").child(userId).setValue("online");
-
+        myMainDialog.setCancelable(false);
+        myMainDialog.setCanceledOnTouchOutside(false);
+        myMainDialog.setContentView(turnongps);
+        myMainDialog.show();
     }
+
 
     @Override
-    public void onBackPressed() {
-        finishAffinity();
-        eachChatViewActive = false;
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        getIntentData();
     }
 
-    private void startLocationUpdates() {
-        LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setInterval(2000);
-        locationRequest.setFastestInterval(1500);
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    Activity#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for Activity#requestPermissions for more details.
-            return;
+    private class MyRunnable implements Runnable {
+        final WeakReference<TextView> tvText;
+        final String activeTime;
+        MyRunnable(TextView tvText, String activeTime) {
+            this.tvText = new WeakReference<>(tvText);
+            this.activeTime = activeTime;
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest,
-                locationCallback,
-                Looper.getMainLooper());
 
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-                .addLocationRequest(locationRequest);
-        SettingsClient client = LocationServices.getSettingsClient(this);
-        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+        @SuppressLint("SetTextI18n")
+        @Override
+        public void run() {
+            //Save the TextView to a local variable because the weak referenced object could become empty at any time
+            TextView mText = tvText.get();
+            if (mText != null) {
 
-        task.addOnSuccessListener(this, new OnSuccessListener<LocationSettingsResponse>() {
+            }
+        }
+    }
+
+
+    // previousSnapView;
+    private int lastFooterPosition =2;
+    private View scrollabletabs;
+    private RecyclerView footerTabRecyclerView;
+    private LinearLayoutManager footerTabsLayoutManager;
+    private void showFooterTabs() {
+
+        //RecyclerView for tabs
+       scrollabletabs = getLayoutInflater().inflate(R.layout.scrollabletabs,null);
+        footerTabRecyclerView=scrollabletabs.findViewById(R.id.tabsRecyclerView);
+        TextView tabTitle=scrollabletabs.findViewById(R.id.myMessageViewHeader);
+        footerCons.addView(scrollabletabs);
+        markMyLocationCons=scrollabletabs.findViewById(R.id.markMyLocationCons);
+        markMyLocationCons.setOnClickListener(this);
+        Resources res = getResources();
+
+        Drawable contactsDrawable = ResourcesCompat.getDrawable(res, R.drawable.contacts, null);
+        TabModel tabModel1=new TabModel("My Contacts",contactsDrawable,0);
+
+        Drawable myMessagesDrawable = ResourcesCompat.getDrawable(res, R.drawable.message, null);
+        TabModel tabModel2=new TabModel("Recent Messages",myMessagesDrawable,unseenmessageCounter);
+
+        Drawable profileDrawable = ResourcesCompat.getDrawable(res, R.drawable.profileavatar, null);
+        TabModel tabModel3=new TabModel("My Profile",profileDrawable,0);
+
+
+
+        Drawable barcodeDrawable = ResourcesCompat.getDrawable(res, R.drawable.qr, null);
+        TabModel tabModel4=new TabModel("Scan QR Code",barcodeDrawable,0);
+
+        Drawable issueTrackerDrawable = ResourcesCompat.getDrawable(res, R.drawable.issue, null);
+        TabModel tabModel5=new TabModel("Issue Tracker",issueTrackerDrawable,0);
+
+        footerTabModels.add(tabModel1);
+        footerTabModels.add(tabModel2);
+        footerTabModels.add(tabModel3);
+        footerTabModels.add(tabModel4);
+        footerTabModels.add(tabModel5);
+
+        footerTabsLayoutManager
+                = new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false);
+        footerTabRecyclerView.setLayoutManager(footerTabsLayoutManager);
+        footerTabsAdaptor =new FooterTabsAdaptor(footerTabModels, new FooterTabsAdaptor.OnItemClickListener() {
             @Override
-            public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
-                // All location settings are satisfied. The client can initialize
-                // location requests here.
-                // ...
+            public void onViewClick(TabModel tabModel) {
+                if(tabModel.getTitle().equals("My Profile")){
+
+                    showProfileViewDialog();
+
+                }
+
+                footerTabsLayoutManager.smoothScrollToPosition(footerTabRecyclerView, null, footerTabModels.indexOf(tabModel));
+            }
+        });
+        footerTabRecyclerView.setAdapter(footerTabsAdaptor);
+        SnapHelper snapHelper=new LinearSnapHelper();
+        snapHelper.attachToRecyclerView(footerTabRecyclerView);
+
+
+        footerTabRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+
+
+
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+
+                View view = snapHelper.findSnapView(footerTabsLayoutManager);
+                int position=footerTabsLayoutManager.getPosition(view);
+
+                if(newState==SCROLL_STATE_IDLE && lastFooterPosition==position){
+
+
+                    switch (position){
+                        case 0:
+                            showMyContacts(null);
+                            searchCons.setVisibility(View.GONE);
+                            break;
+
+                        case 1:
+                            showMyMessages();
+                            topCons.setVisibility(View.INVISIBLE);
+                            break;
+
+                        case 2:
+                            topCons.setVisibility(View.VISIBLE);
+                            middleCons.removeAllViews();
+                            if(usermarker!=null){
+                                changeMapCamera(usermarker.getPosition(),13);
+                            }
+                            searchCons.setVisibility(View.VISIBLE);
+
+                            break;
+
+                        case 3:
+                            topCons.setVisibility(View.INVISIBLE);
+                            middleCons.removeAllViews();
+                            showCameraScanner();
+                            break;
+
+                        case 4:
+                            topCons.setVisibility(View.INVISIBLE);
+                            showIssueTrackerView();
+                            searchCons.setVisibility(View.GONE);
+                            break;
+
+
+
+                    }
+
+                }
+
+            }
+
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                View snapView= snapHelper.findSnapView(footerTabsLayoutManager);
+                int position=footerTabsLayoutManager.getPosition(snapView);
+                tabTitle.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        tabTitle.setText(footerTabModels.get(position).getTitle());
+                    }
+                });
+
+
+
+                if(position!= lastFooterPosition){
+
+                    if(!mediaPlayer.isPlaying()){
+                        mediaPlayer.start();
+                    }
+                    lastFooterPosition =position;
+
+                }
+
+                for(TabModel tabModel: footerTabModels){
+
+                    int tabsIndex= footerTabModels.indexOf(tabModel);
+                    View view = footerTabsLayoutManager.getChildAt(tabsIndex);
+
+
+                    if(snapView!=null && view!=null){
+                        if(snapView==view){
+
+                            setRecyclerViewItemDecoration(view,R.drawable.whiteround,position,70,70,1.0f);
+
+                        }
+                        else if(tabsIndex==position-1 || tabsIndex==position+1){
+                            setRecyclerViewItemDecoration(view,R.drawable.greenround,position,45,45,0.5f);
+
+                        }
+                        else{
+
+                            setRecyclerViewItemDecoration(view,R.drawable.greenround,position,30,30,0.2f);
+
+                        }
+                        if(tabModel.getNotificationCounter()>0 && snapView!=view){
+                            setRecyclerViewItemDecoration(view,R.drawable.greenround,position,50,50,1.0f);
+                        }
+
+
+
+
+                    }
+
+                }
+
+
+
             }
         });
 
-        task.addOnFailureListener(this, new OnFailureListener() {
+
+
+        footerTabRecyclerView.scrollToPosition(lastFooterPosition);
+
+    }
+
+
+    private void setRecyclerViewItemDecoration(View itemView,int drawable,int position,int width,int height,float alpha){
+        itemView.post(new Runnable() {
+            @Override public void run() {
+                itemView.requestLayout();
+                Resources res = getResources();
+                Drawable drawable1 = ResourcesCompat.getDrawable(res, drawable, null);
+                itemView.setBackground(drawable1);
+                ViewGroup.LayoutParams layoutParams = itemView.getLayoutParams();
+                layoutParams.width = dpToPx(width);
+                layoutParams.height = dpToPx(height);
+                itemView.setAlpha(alpha);
+                itemView.setLayoutParams(layoutParams);
+            }});
+    }
+
+
+
+    public static boolean mapActivityOn = false;
+
+    public void userAccountPublic(String mode) {
+        mFirebaseDatabaseReference.child("Users").child(userId).child("accountMode").setValue(mode);
+
+    }
+
+    public void userActiveStatus(String activeStatusShare) {
+
+        long currentDateTime = System.currentTimeMillis();
+        if (activeStatusShare.equals("true")) {
+            UserActive userActive = new UserActive("true", "true", String.valueOf(currentDateTime));
+            mFirebaseDatabaseReference.child("Users").child(userId).child("userActive").setValue(userActive);
+        } else {
+            UserActive userActive = new UserActive("true", "false", String.valueOf(currentDateTime));
+            mFirebaseDatabaseReference.child("Users").child(userId).child("userActive").setValue(userActive);
+        }
+    }
+
+
+
+    Location mCurrentLocation;
+    private void createLocationCallback() {
+        mLocationCallback = new LocationCallback() {
             @Override
-            public void onFailure(@NonNull Exception e) {
-                if (e instanceof ResolvableApiException) {
-                    // Location settings are not satisfied, but this can be fixed
-                    // by showing the user a dialog.
-                    try {
-                        // Show the dialog by calling startResolutionForResult(),
-                        // and check the result in onActivityResult().
-                        ResolvableApiException resolvable = (ResolvableApiException) e;
-                        resolvable.startResolutionForResult(MapsActivity.this,
-                                REQUEST_CHECK_SETTINGS);
-                    } catch (IntentSender.SendIntentException sendEx) {
-                        // Ignore the error.
+            public void onLocationResult(LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+
+                mCurrentLocation = locationResult.getLastLocation();
+                if (mCurrentLocation != null && actvityRunning) {
+
+                    myLatlng = new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
+                    MapsActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                           if(usermarker!=null){
+                               usermarker.setPosition(myLatlng);
+                           }
+                        }
+                    });
+
+                    if(mylocationTracking){
+
+                        UserLatLng userLatLng=new UserLatLng(String.valueOf(mCurrentLocation.getLatitude()),String.valueOf(mCurrentLocation.getLongitude()));
+                        mFirebaseDatabaseReference.child("Users").child(userId).child("locationTracking").child("userLatLng").setValue(userLatLng);
                     }
                 }
             }
+        };
+    }
+
+    int i = 0;
+    boolean startLocationUpdateStatus = true;
+    LocationRequest locationRequest;
+    public void startLocationUpdates() {
+
+        locationRequest = LocationRequest.create();
+        locationRequest.setInterval(2000);
+        locationRequest.setFastestInterval(1000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_NO_POWER);
+
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+            return;
+        }
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplicationContext());
+
+        fusedLocationClient.requestLocationUpdates(locationRequest,mLocationCallback, handlerThread.getLooper()).addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                Log.d("startLocationUpdates start", "" + i);
+            }
         });
+
+
+        startLocationUpdateStatus = false;
 
     }
 
 
+
+    // QR code scanner Handling function
     @Override
     public void handleResult(Result result) {
         final String data = result.getText();
 
-        if(data.contains("User:")) {
-            scanqr.dismiss();
+        if (data.contains("User:")) {
+            myMainDialog.dismiss();
             String consumerID = data.substring(5);
             Toast.makeText(getApplicationContext(), "User ID: " + consumerID,
                     Toast.LENGTH_SHORT).show();
-            if(consumerID.equals(userId)){
-                Toast.makeText(getApplicationContext(), "Cannot add yourself !!!" + consumerID,
+            if (consumerID.equals(userId)) {
+                Toast.makeText(getApplicationContext(), "Cannot add Yourself.",
                         Toast.LENGTH_SHORT).show();
-            }
-            else{
-                showaddcontact(consumerID);
+            } else {
+                for (User user : allUsersList) {
+
+                    if (user.getUserID().equals(consumerID)) {
+                        showaddcontact(user);
+                    }
+                }
             }
 
 
-        }
-        else {
-            scanqr.dismiss();
+        } else {
+            myMainDialog.dismiss();
             Toast.makeText(getApplicationContext(), "QR code not in this application.",
                     Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void showaddcontact(final String consumerID) {
-        final Dialog addcontactDialog = new Dialog(MapsActivity.this);
-        View addcontact = getLayoutInflater().inflate(R.layout.addcontactprofile, null);
-
-        final Button add=addcontact.findViewById(R.id.addfriend);
-        final ImageView contactImage=addcontact.findViewById(R.id.contactImage);
-        final TextView userName=addcontact.findViewById(R.id.userName);
+    public void showaddcontact(User user) {
 
 
-        addcontactDialog.setContentView(addcontact);
-        addcontactDialog.show();
+        myMainDialog.setContentView(R.layout.addcontactprofile);
+        myMainDialog.show();
 
-        mFirebaseDatabaseReference.child("Users").child("Consumers").child(consumerID).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                if(dataSnapshot.exists()){
-                    String consumerName=dataSnapshot.child("consumerName").getValue(String.class);
-                    String consumerEmail=dataSnapshot.child("consumerEmail").getValue(String.class);
-                    String photoUri=dataSnapshot.child("photoUri").getValue(String.class);
-                    if(photoUri!=null){
-                       Picasso.get().load(photoUri).fit().centerCrop().into(contactImage);
-                    }
-                    userName.setText(consumerName);
+        final Button add = myMainDialog.findViewById(R.id.addFriend);
+        final ImageView contactImage = myMainDialog.findViewById(R.id.contactImage);
+        final TextView userNameTextView = myMainDialog.findViewById(R.id.userName);
+        ImageButton chatMessage = myMainDialog.findViewById(R.id.chatMessage);
+
+
+        if (user.getPhotoUri() != null) {
+            Picasso.get().load(user.getPhotoUri()).fit().centerCrop().into(contactImage);
+        }
+        userNameTextView.setText(user.getUserName());
+
+        for (Contact contact : friendRequestList) {
+            if (contact.getReceiverID().equals(userId) && contact.getSenderID().equals(user.getUserID()) || contact.getReceiverID().equals(user.getUserID()) && contact.getSenderID().equals(userId)) {
+                add.setText(contact.getStatus());
+            }
+        }
+        for (Contact contact : friendRequestPendingList) {
+            if (contact.getReceiverID().equals(userId) && contact.getSenderID().equals(user.getUserID()) || contact.getReceiverID().equals(user.getUserID()) && contact.getSenderID().equals(userId)) {
+                add.setText(contact.getStatus());
+            }
+        }
+        for (Contact contact : connectedContacts) {
+            if (contact.getReceiverID().equals(userId) && contact.getSenderID().equals(user.getUserID()) || contact.getReceiverID().equals(user.getUserID()) && contact.getSenderID().equals(userId)) {
+                add.setText(contact.getStatus());
+                chatMessage.setVisibility(View.VISIBLE);
+            }
+        }
+
+        add.setOnClickListener(v -> {
+
+            if (add.getText().equals("Add Contact")) {
+                myMainDialog.dismiss();
+                Toast.makeText(getApplicationContext(), "Request Sent to: " + userNameTextView.getText().toString(),
+                        Toast.LENGTH_SHORT).show();
+
+                String contactID = mFirebaseDatabaseReference.child("Contacts").push().getKey();
+                Contact contact = new Contact(contactID, userId, user.getUserID(), "Pending");
+
+                if (contactID != null) {
+                    mFirebaseDatabaseReference.child("Contacts").child(contactID).setValue(contact);
 
                 }
 
             }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
         });
 
-             for(Contact contact:friendRequestList){
-                 if(contact.getReceiverID().equals(userId) && contact.getSenderID().equals(consumerID) || contact.getReceiverID().equals(consumerID) && contact.getSenderID().equals(userId)){
-                     add.setText(contact.getStatus());
-                 }
-             }
-            for(Contact contact:friendRequestPendingList){
-                if(contact.getReceiverID().equals(userId) && contact.getSenderID().equals(consumerID) || contact.getReceiverID().equals(consumerID) && contact.getSenderID().equals(userId)){
-                    add.setText(contact.getStatus());
-                }
-            }
-            for(Contact contact:connectedContacts){
-                if(contact.getReceiverID().equals(userId) && contact.getSenderID().equals(consumerID) || contact.getReceiverID().equals(consumerID) && contact.getSenderID().equals(userId)){
-                    add.setText(contact.getStatus());
-                }
-            }
 
-        add.setOnClickListener(new View.OnClickListener() {
+        chatMessage.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
-                if(add.getText().equals("Add Contact")){
-                    addcontactDialog.dismiss();
-                    Toast.makeText(getApplicationContext(), "Request Sent to: "+ userName.getText().toString(),
-                            Toast.LENGTH_SHORT).show();
+                for (ChatRoom chatRoom : chatRoomList) {
 
-                    String contactID=mFirebaseDatabaseReference.child("Contacts").push().getKey();
-                    Contact contact=new Contact(contactID,userId,consumerID,"Pending");
-
-                    mFirebaseDatabaseReference.child("Contacts").child(contactID).setValue(contact);
-
-
+                    if (chatRoom.getChatRoomUsers().containsKey(user.getUserID()) && chatRoom.getChatRoomUsers().containsKey(userId)) {
+                        showMyMessages();
+                        showeachChatView(chatRoom);
+                    }
                 }
 
             }
@@ -1829,280 +2814,374 @@ public class MapsActivity extends FragmentActivity implements
 
     }
 
+
+    public void getIntentData() {
+        Bundle extras = getIntent().getExtras();
+
+        if (extras != null) {
+
+            String chatroomID = getIntent().getStringExtra("chatroomID");
+
+
+            for (ChatRoom chatRoom : chatRoomList) {
+                if (chatRoom.getChatRoomID().equals(chatroomID)) {
+
+                    if (myMainDialog != null) {
+                        myMainDialog.dismiss();
+
+                    }
+                    showeachChatView(chatRoom);
+
+                }
+            }
+            if(chatRoomList.size()==0){
+
+                Log.e("chatroom empty","true");
+                showMyMessages();
+                getMyChatRooms();
+            }
+
+            getIntent().replaceExtras(new Bundle());
+        }
+    }
 
 
     DatabaseReference dd;
     StorageReference filePath;
 
     @Override
-    public void onActivityResult(int requestCode,int resultCode, final Intent data) {
+    public void onActivityResult(int requestCode, int resultCode, final Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK) {
+        if (requestCode == PICK_PROFILE_IMAGE_REQUEST && resultCode == RESULT_OK) {
             Uri localStorageuri = data.getData();
+
             userImageViewCons.setVisibility(View.INVISIBLE);
             progressBar.setVisibility(View.VISIBLE);
+
             filePath = storageRef.child("Users").child(userId).child("image.jpg");
 
+            profileImage.setImageURI(localStorageuri);
 
-            filePath.putFile(localStorageuri).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                @Override
-                public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+            ByteArrayOutputStream bao = new ByteArrayOutputStream();
+            Bitmap bitmap = ((BitmapDrawable) profileImage.getDrawable()).getBitmap();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 10, bao); // bmp is bitmap from user image file
+            bitmap.recycle();
+            byte[] byteArray = bao.toByteArray();
 
-                   filePath.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
-                       @Override
-                       public void onSuccess(Uri uri) {
-                           userImageViewCons.setVisibility(View.VISIBLE);
-                           progressBar.setVisibility(View.INVISIBLE);
-                           Picasso.get().load(uri).fit().centerCrop().into(profileImage);
-                           mFirebaseDatabaseReference.child("Users").child("Consumers").child(userId).child("photoUri").setValue(uri.toString());
 
-                       }
-                   });
+            UploadTask uploadTask = filePath.putBytes(byteArray);
+            uploadTask.addOnFailureListener(exception -> {
+                // Handle unsuccessful uploads
+            }).addOnSuccessListener(taskSnapshot -> filePath.getDownloadUrl().addOnSuccessListener(uri -> {
+                userImageViewCons.setVisibility(View.VISIBLE);
+                progressBar.setVisibility(View.INVISIBLE);
+                Picasso.get().load(uri).fit().centerCrop().into(profileImage);
+                mFirebaseDatabaseReference.child("Users").child(userId).child("photoUri").setValue(uri.toString());
 
-                }
-            }).addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
-                @Override
-                public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
-                    double progress = 100.0*taskSnapshot.getBytesTransferred()/taskSnapshot.getTotalByteCount();
-                    progressBar.setProgress((int)progress);
-                }
+            })).addOnProgressListener(taskSnapshot -> {
+                double progress = 100.0 * taskSnapshot.getBytesTransferred() / taskSnapshot.getTotalByteCount();
+                progressBar.setProgress((int) progress);
             });
 
         }
 
 
-    }
-
-    EglBase rootEglBase;
-    MediaPlayer callingsound;
-    SurfaceViewRenderer friendVideo;
-    SurfaceViewRenderer myvideo;
-    PeerConnectionFactory peerConnectionFactory;
-    MediaConstraints sdpConstraints;
-    VideoTrack localVideoTrack;
-    VideoTrack remoteVideoTrack;
-    AudioTrack localAudioTrack;
-    MediaStream stream;
-
-    PeerConnection localPeer, remotePeer;
-    Button start, call, hangup;
-    private void startConnection(){
-
-        rootEglBase=EglBase.create();
-        //initialize PCF
-        PeerConnectionFactory.initialize(
-                PeerConnectionFactory.InitializationOptions.builder(this)
-                        .setFieldTrials("WebRTC-IntelVP8/Enabled")
-                        .createInitializationOptions()
-        );
-        PeerConnectionFactory.Options options= new PeerConnectionFactory.Options();
-
-        peerConnectionFactory=PeerConnectionFactory.builder().setOptions(options)
-                .createPeerConnectionFactory();
-
-        VideoCapturer videoCapturer=createVideoCapturer();
-        MediaConstraints constraints=new MediaConstraints();
-        VideoSource videoSource=peerConnectionFactory.createVideoSource(false);
-        //VideoTrack localVideoTrack= createVideoTrack(videoCapturer,videoSource);
-        SurfaceTextureHelper textureHelper=SurfaceTextureHelper.create(Thread.currentThread().getName(),rootEglBase.getEglBaseContext());
-        videoCapturer.initialize(textureHelper,this,videoSource.getCapturerObserver());
-        videoCapturer.startCapture(1024,720,30);//capture in HD
-
-        localVideoTrack=peerConnectionFactory.createVideoTrack("VIDEO1",videoSource);
-        localVideoTrack.setEnabled(true);
-        AudioSource audioSource=peerConnectionFactory.createAudioSource(constraints);
-        localAudioTrack=peerConnectionFactory.createAudioTrack("AUDIO1",audioSource);
-        localAudioTrack.setEnabled(true);
-
-
-
-        final View videocallview = getLayoutInflater().inflate(R.layout.videocallview, null);
-        ImageButton endCall=videocallview.findViewById(R.id.endCall);
-        overlappingConstraint.addView(videocallview);
-        myMessagesDialog.dismiss();
-
-
-        friendVideo =videocallview.findViewById(R.id.friendVideo);
-        myvideo =videocallview.findViewById(R.id.myvideo);
-
-
-
-        friendVideo.init(rootEglBase.getEglBaseContext(),null);
-        friendVideo.setVisibility(View.VISIBLE);
-
-        friendVideo.setMirror(true);
-        myvideo.init(rootEglBase.getEglBaseContext(),null);
-        myvideo.setVisibility(View.VISIBLE);
-
-        myvideo.setMirror(true);
-
-        localVideoTrack.addSink(myvideo);
-        localVideoTrack.addSink(friendVideo);
-
-
-
-
-
-        callingsound=MediaPlayer.create(getApplicationContext(),R.raw.phoneringing);
-        callingsound.setVolume(00.1f,0.01f);
-         if(callingsound.isPlaying()){
-             callingsound.stop();
-             callingsound.start();
-         }
-         else{
-             callingsound.start();
-         }
-
-        callingsound.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-            @Override
-            public void onCompletion(MediaPlayer mp) {
-                callingsound.start();
-            }
-        });
-
-        endCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                overlappingConstraint.removeAllViews();
-                callingsound.stop();
-                callingsound.reset();
-                hangup();
-            }
-        });
-
-        call();
-
-
 
     }
 
 
-    private VideoCapturer createVideoCapturer() {
-        VideoCapturer videoCapturer;
-        videoCapturer = createCameraCapturer(new Camera1Enumerator(true));
-        return videoCapturer;
-    }
+    public void createMyMarker() {
 
-    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
-        final String[] deviceNames = enumerator.getDeviceNames();
+       View userMarkerView = getLayoutInflater().inflate(R.layout.imageviewmarker, null);
+        ImageView image = userMarkerView.findViewById(R.id.image);
+        ConstraintLayout markerbg = userMarkerView.findViewById(R.id.markerbg);
+       //markerbg.setBackground(getResources().getDrawable(R.drawable.usermarker));
 
-        // Trying to find a front facing camera!
-        for (String deviceName : deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
 
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
+        if (mMap != null) {
+
+            Glide.with(getApplicationContext())
+                    .asBitmap()
+                    .load(myDetails.getPhotoUri())
+                    .into(new CustomTarget<Bitmap>() {
+                        @Override
+                        public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                            image.setImageBitmap(resource);
+                            Bitmap bmp = createBitmapFromView(userMarkerView);
+
+                            BitmapDescriptor icon = BitmapDescriptorFactory.fromBitmap(Bitmap.createScaledBitmap(bmp, 180, 180, false));
+
+                            if (usermarker == null && myLatlng != null && mMap!=null) {
+
+                                usermarker = mMap.addMarker(new MarkerOptions()
+                                        .position(myLatlng).title("You")
+                                        .visible(true).icon(icon).draggable(true));
+                                usermarker.setTag(userId);
+
+                               changeMapCamera(usermarker.getPosition(),13);
+
+
+                            }
+                            bmp.recycle();
+                        }
+
+                        @Override
+                        public void onLoadCleared(@Nullable Drawable placeholder) {
+                        }
+                    });
+
+
+
         }
 
-        // We were not able to find a front cam. Look for other cameras
-        for (String deviceName : deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-                if (videoCapturer != null) {
-                    return videoCapturer;
+
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.userImageView:
+                showProfileViewDialog();
+                break;
+
+
+            case R.id.signOut:
+                signOutUser();
+                break;
+
+
+            case R.id.addUserImage:
+                requestForImageUpload();
+                break;
+
+
+            case R.id.setting:
+                showSettingDialog();
+                break;
+
+            case R.id.searchCons:
+                showQuickAddDialog();
+                break;
+
+            case R.id.friendRequestButton:
+                showFriendRequestsDialog();
+                break;
+
+
+            case R.id.singleTextView:
+                polyline.remove();
+                mainCons.setVisibility(View.VISIBLE);
+                findViewById(R.id.navigationCons).setVisibility(View.GONE);
+                break;
+
+            case R.id.markMyLocationCons:
+                if(usermarker!=null){
+                    changeMapCamera(usermarker.getPosition(),13);
                 }
-            }
-        }
+                break;
 
-        return null;
-    }
+            case R.id.messageviewLayout:
+                //middleCons.removeAllViews();
+                break;
 
-    private boolean useCamera2() {
-        return Camera2Enumerator.isSupported(this);
-    }
+            case R.id.videoCall:
+                startCallingFriend(chattingFriend,"video call");
+                break;
 
-    private void call() {
-        //we already have video and audio tracks. Now create peerconnections
-        List<PeerConnection.IceServer> iceServers = new ArrayList<>();
-        PeerConnection.IceServer.Builder iceServerBuilder = PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302");
-        iceServerBuilder.setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK); //this does the magic.
-
-        PeerConnection.IceServer iceServer =  iceServerBuilder.createIceServer();
-
-        iceServers.add(iceServer);
-
-         if(iceServers.isEmpty()){
-             Log.d("Servers","null");
-            }
-            else{
-                Log.d("Servers",iceServers.toString());
-            }
-
-       //create sdpConstraints
-        sdpConstraints = new MediaConstraints();
-        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+                case R.id.messageRecycleView:
+                    Log.e("Chat Room Deleted","True");
+                    chatBoxAdaptor.notifyDataSetChanged();
+                break;
 
 
-
-        //creating localPeer
-        localPeer = peerConnectionFactory.createPeerConnection(iceServers,sdpConstraints, new PeerConnectionObserver("localPeerCreation") {
-            @Override
-            public void onIceCandidate(IceCandidate iceCandidate) {
-                super.onIceCandidate(iceCandidate);
-                onIceCandidateReceived(localPeer, iceCandidate);
-
-            }
-        });
-
-        //creating remotePeer
-        remotePeer = peerConnectionFactory.createPeerConnection(iceServers, sdpConstraints, new PeerConnectionObserver("remotePeerCreation") {
-
-            @Override
-            public void onIceCandidate(IceCandidate iceCandidate) {
-                super.onIceCandidate(iceCandidate);
-                onIceCandidateReceived(remotePeer, iceCandidate);
-
-            }
-
-            @Override
-            public void onAddStream(MediaStream mediaStream) {
-                super.onAddStream(mediaStream);
-                if(mediaStream.audioTracks.size() > 0) {
-                    remoteVideoTrack=mediaStream.videoTracks.get(0);
-                    remotePeer.addStream(stream);
-                    remoteVideoTrack.addSink(friendVideo);
-                }
-
-
-            }
-        });
-
-        MediaStream mediaStream=peerConnectionFactory.createLocalMediaStream("ARDAMS");
-        mediaStream.addTrack(localVideoTrack);
-        mediaStream.addTrack(localAudioTrack);
-       localPeer.addStream(mediaStream);
-
-
-        Log.d("Local Peer",localPeer.toString());
-
-
-    }
-    private void hangup() {
-        //localPeer.close();
-        //remotePeer.close();
-        localPeer = null;
-        remotePeer = null;
-    }
-
-
-    public void onIceCandidateReceived(PeerConnection peer, IceCandidate iceCandidate) {
-        //we have received ice candidate. We can set it to the other peer.
-        if (peer == localPeer) {
-            remotePeer.addIceCandidate(iceCandidate);
-        } else {
-            localPeer.addIceCandidate(iceCandidate);
         }
     }
 
     @Override
-    public void onLocationChanged(Location location) {
+    protected void onSaveInstanceState(Bundle outState) {
+        Log.d("saveInstances", outState.toString());
+    }
+
+
+    HandlerThread handlerThread;
+    Handler myLocationHandler;
+
+    @Override
+    public void onResume() {
+
+        Log.d("activitymethod", "onResume");
+
+
+
+        mapActivityOn = true;
+        myLocationHandler=new Handler(handlerThread.getLooper());
+
+        if (startLocationUpdateStatus) {
+
+            myLocationHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                  createLocationCallback();
+                  startLocationUpdates();
+                }
+            });
+
+
+        }
+        actvityRunning=true;
+        super.onResume();
 
     }
+
+
+
+    @Override
+    public void onStart() {
+        Log.d("activitymethod", "onStart");
+
+        super.onStart();
+
+
+    }
+
+
+
+
+    boolean actvityRunning=false;
+    @Override
+    public void onPause() {
+
+
+        myLocationHandler.removeCallbacks(null);
+        mapActivityOn = false;
+        eachChatViewActive = false;
+        messageDialogActive = false;
+        Log.d("activitymethod", "onPause");
+        mainHandler.removeCallbacksAndMessages(null);
+
+        if (fusedLocationClient != null && mLocationCallback != null) {
+            final Task<Void> voidTask = fusedLocationClient.removeLocationUpdates(mLocationCallback);
+
+            voidTask.addOnCompleteListener(task ->
+                    Log.e("onPause", "addOnCompleteListener: " + task.isComplete())
+            ).addOnSuccessListener(aVoid -> {
+                Log.e("onPause", "addOnSuccessListener: ");
+
+                if (fusedLocationClient != null) {
+                    locationRequest=null;
+                    fusedLocationClient = null;
+                }
+
+                if (mLocationCallback != null) {
+                    mLocationCallback=null;
+                }
+
+
+            }).addOnFailureListener(e -> Log.e("onPause", "addOnFailureListener: " + e.getMessage()));
+
+        }
+        startLocationUpdateStatus = true;
+
+        long currentDateTime = System.currentTimeMillis();
+        if (myDetails != null && myDetails.getUserActive() != null) {
+            activeStatusShareSettingValue = myDetails.getUserActive().getActiveStatusShareSetting();
+            UserActive userActive = new UserActive("false", activeStatusShareSettingValue, String.valueOf(currentDateTime));
+            mFirebaseDatabaseReference.child("Users").child(userId).child("userActive").setValue(userActive);
+
+        }
+
+
+        super.onPause();
+
+    }
+
+    @Override
+    public void onStop() {
+
+        Log.d("activitymethod", "onStop");
+
+        actvityRunning=false;
+
+        if (mScannerView != null) {
+            mScannerView.setResultHandler(null);
+        }
+
+        super.onStop();
+
+    }
+
+
+    @Override
+    public void onDestroy() {
+
+
+        handlerThread.quit();
+
+        if(myIncomingCallValueEventListener!=null){
+            mFirebaseDatabaseReference.child("Calls").child(userId).removeEventListener(myIncomingCallValueEventListener);
+        }
+        if (myContactsListener != null) {
+            contactsReference.removeEventListener(myContactsListener);
+        }
+        if (getMyDataListener != null) {
+            myDataReference.removeEventListener(getMyDataListener);
+        }
+        if (getAllUserListener != null) {
+            allUsersReference.removeEventListener(getAllUserListener);
+        }
+        if (getMyChatRoomListener != null) {
+            myChatRoomReference.removeEventListener(getMyChatRoomListener);
+        }
+        if (myMessagesListener != null) {
+            myMessagesReference.removeEventListener(myMessagesListener);
+        }
+
+        if (gpsSwitchStateReceiver != null) {
+
+            getApplicationContext().unregisterReceiver(gpsSwitchStateReceiver);
+            locationManager=null;
+        }
+
+        if (inputMethodManager != null) {
+            inputMethodManager = null;
+        }
+
+
+        if (mMap != null) {
+            usermarker=null;
+            friendMarkerHashMap.clear();
+            mMap.clear();
+            allUsersList.clear();
+            chatRoomList.clear();
+            activeChatroomMessages.clear();
+            mMap.setMyLocationEnabled(false);
+            mMap=null;
+            Log.d("fragments", ""+getSupportFragmentManager().getFragments().toString());
+
+        }
+
+
+        super.onDestroy();
+
+    }
+
+    @Override
+    public void onLowMemory() {
+        mapFragment.onLowMemory();
+        Log.e("Low Memory", "app is using lots of memory" );
+
+        super.onLowMemory();
+    }
+
+    @Override
+    public void onBackPressed() {
+
+        //finishAffinity();
+        Log.d("Activity Destroyed", "" + isFinishing());
+
+    }
+
 }
 
 

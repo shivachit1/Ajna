@@ -1,23 +1,35 @@
 package app.shiva.ajna.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
-public class Message implements Serializable {
+public class Message implements Serializable,Comparable<Message> {
    private String message;
     private String messageId;
     private String date;
     private String senderID;
-    private String status;
+    private String messageType;
+    private ArrayList<MessageSeen> messageSeens;
 
     public Message() {
     }
 
-    public Message(String message, String messageId, String currentdate, String senderID, String status) {
+    public Message(String message, String messageId, String date, String senderID, String messageType) {
+        this.message = message;
+        this.messageId = messageId;
+        this.date = date;
+        this.senderID = senderID;
+        this.messageType = messageType;
+        this.messageSeens=new ArrayList<>();
+    }
+
+    public Message(String message, String messageId, String currentdate, String senderID, String messageType, ArrayList<MessageSeen> messageSeens) {
         this.message = message;
         this.messageId=messageId;
         this.date=currentdate;
         this.senderID = senderID;
-        this.status=status;
+        this.messageType = messageType;
+        this.messageSeens = messageSeens;
     }
 
     public String getMessage() {
@@ -53,12 +65,30 @@ public class Message implements Serializable {
         this.senderID = senderID;
     }
 
-    public String getStatus() {
-        return status;
+    public String getMessageType() {
+        return messageType;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public void setMessageType(String messageType) {
+        this.messageType = messageType;
+    }
+
+
+    public ArrayList<MessageSeen> getMessageSeens() {
+        return messageSeens;
+    }
+
+    public void setMessageSeens(ArrayList<MessageSeen> messageSeens) {
+        this.messageSeens = messageSeens;
+    }
+
+
+    @Override
+    public int compareTo(Message message) {
+        double compareTime = Double.valueOf(message.getDate());
+        /* For Ascending order*/
+        double comparingToTime= Double.valueOf(this.date);
+        return (int)(compareTime-comparingToTime);
     }
 }
 

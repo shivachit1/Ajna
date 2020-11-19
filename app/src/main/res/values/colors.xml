@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#8A5D6665</color>
-    <color name="colorPrimaryDark">#596B7775</color>
-    <color name="colorAccent">#5A4D53</color>
-    <color name="appthemeColor">#BE272625</color>
-    <color name="green">#31DF79</color>
-    <color name="blue">#592A99</color>
+
 </resources>

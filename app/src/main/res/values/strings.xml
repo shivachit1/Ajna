@@ -1,18 +1,52 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Ajna</string>
-    <string name="title_activity_sellers_maps">Map</string>
     <string name="google_client_id">253097361888-dbvb0o1046bq0kbg7ang3til6f4jjske.apps.googleusercontent.com</string>
 
-    <string-array name="online_staus">
-            <item>Online</item>
-            <item>Offline</item>
-            <item>Busy</item>
 
-    </string-array>
+    <string name="accept">Accept</string>
+    <string name="username">Username</string>
+    <string name="add_contact">Add Contact</string>
+    <string name="date">date</string>
+    <string name="messages">messages</string>
+    <string name="_10_20_pm">10:20 pm</string>
+    <string name="messagestatus">messageStatus</string>
+    <string name="name">name</string>
+    <string name="backButton">backButton</string>
+    <string name="voicecall">voiceCall</string>
+    <string name="videocall">videoCall</string>
+    <string name="is_typing">is typing …</string>
+    <string name="typeMessage">Type a chatMessage</string>
+    <string name="send">send</string>
+    <string name="delete">delete</string>
+    <string name="chatMessage">chatMessage</string>
+    <string name="friend_requests">Friend Requests</string>
+    <string name="pending_requests">Pending Requests</string>
+    <string name="no_friend_requests">No Friend Requests</string>
+    <string name="_2m">2m</string>
+    <string name="ajna_icon">ajna_icon</string>
+    <string name="sign_in_with_google">Sign In with Google+</string>
+    <string name="google">google</string>
+    <string name="composemessage">composeMessage</string>
+    <string name="addUserImage">addUserImage</string>
+    <string name="location">location</string>
 
-
-    <string name="google_map_key">AIzaSyB998LF0U_T_Ew3D_soFKULCt73sxqyQyE</string>
-
+    <string name="my_profile">My Profile</string>
+    <string name="userBarCode">userBarCode</string>
+    <string name="my_business">My Business</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="settings">Settings</string>
+    <string name="account_public">Account Public</string>
+    <string name="account_public_on_off">Account Public ( ON/ OFF )</string>
+    <string name="active">Active</string>
+    <string name="share_your_active_time_on_off">Share your active time (ON / OFF)</string>
+    <string name="location_sharing_on_off">Location sharing (ON / OFF)</string>
+    <string name="version_1_0">Version 1.0</string>
+    <string name="your_gps_is_disabled_do_you_want_to_turn_it_on">Your GPS is disabled. Do you want to turn it ON?</string>
+    <string name="ajna">ajna</string>
+    <string name="chat_application">chat application</string>
+    <string name="Done" tools:keep="@string/Done">Done</string>
+    <string name="todo">TODO</string>
+    <string name="line">l</string>
 
 
 

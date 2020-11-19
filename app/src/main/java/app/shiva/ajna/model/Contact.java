@@ -1,13 +1,10 @@
 package app.shiva.ajna.model;
 
 public class Contact {
-    private String contactID;
-    private String senderID;
-    private String receiverID;
+    private final String contactID;
+    private final String senderID;
+    private final String receiverID;
     private String status;
-
-    public Contact() {
-    }
 
     public Contact(String contactID,String senderID, String receiverID,String status) {
         this.contactID=contactID;
@@ -20,24 +17,14 @@ public class Contact {
         return contactID;
     }
 
-    public void setContactID(String contactID) {
-        this.contactID = contactID;
-    }
-
+    
     public String getSenderID() {
         return senderID;
     }
 
-    public void setSenderID(String senderID) {
-        this.senderID = senderID;
-    }
 
     public String getReceiverID() {
         return receiverID;
-    }
-
-    public void setReceiverID(String receiverID) {
-        this.receiverID = receiverID;
     }
 
     public String getStatus() {

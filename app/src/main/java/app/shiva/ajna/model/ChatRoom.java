@@ -1,29 +1,27 @@
 package app.shiva.ajna.model;
+import java.util.HashMap;
 
-import java.util.ArrayList;
-
-public class ChatRoom {
-    private String chatRoomID;
+public class ChatRoom implements Comparable<ChatRoom>{
+    private final String chatRoomID;
     private String activeTime;
-    private ArrayList<String> chatRoomUsers;
-    private String lastMessageID;
+    private final HashMap<String,ChatRoomUser> chatRoomUsers;
+    private final HashMap<String,Message> messages;
 
-    public ChatRoom(String chatRoomID,String activeTime, ArrayList<String> chatRoomUsers,String lastMessageID) {
+
+    public ChatRoom(String chatRoomID, String activeTime, HashMap<String,ChatRoomUser> chatRoomUsers, HashMap<String,Message> messages) {
         this.chatRoomID=chatRoomID;
         this.activeTime = activeTime;
         this.chatRoomUsers = chatRoomUsers;
-        this.lastMessageID=lastMessageID;
+        this.messages = messages;
     }
 
     public String getChatRoomID() {
         return chatRoomID;
     }
 
-    public void setChatRoomID(String chatRoomID) {
-        this.chatRoomID = chatRoomID;
-    }
 
-    public String getActiveTime() {
+
+    private String getActiveTime() {
         return activeTime;
     }
 
@@ -31,19 +29,25 @@ public class ChatRoom {
         this.activeTime = activeTime;
     }
 
-    public ArrayList<String> getChatRoomUsers() {
+    public HashMap<String, ChatRoomUser> getChatRoomUsers() {
         return chatRoomUsers;
     }
 
-    public void setChatRoomUsers(ArrayList<String> chatRoomUsers) {
-        this.chatRoomUsers = chatRoomUsers;
+
+    public HashMap<String, Message> getMessages() {
+        return messages;
     }
 
-    public String getLastMessageID() {
-        return lastMessageID;
-    }
 
-    public void setLastMessageID(String lastMessageID) {
-        this.lastMessageID = lastMessageID;
+
+
+
+    @Override
+    public int compareTo(ChatRoom chatRoom) {
+        double compareTime = Double.valueOf(chatRoom.getActiveTime());
+        /* For Ascending order*/
+        double comparingToTime= Double.valueOf(this.activeTime);
+
+        return (int)(compareTime - comparingToTime);
     }
 }

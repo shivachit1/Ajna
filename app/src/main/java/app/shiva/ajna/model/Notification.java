@@ -1,6 +1,6 @@
 package app.shiva.ajna.model;
 
-public class Notification {
+class Notification {
     private String notificationID;
     private String notificationType;
     private String notificationSender;

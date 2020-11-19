@@ -2,16 +2,26 @@ package app.shiva.ajna.model;
 
 public class Call {
     private String callerId;
-    private String receiverId;
+    private String recieverId;
     private String callType;
+    private String callStatus;
+    private String sessionId;
+    private  String tokenId;
+    private String startTimeStamp;
+    private String endTimeStamp;
 
     public Call() {
     }
 
-    public Call(String callerId, String receiverId, String callType) {
+    public Call(String callerId, String recieverId, String callType, String callStatus, String sessionId, String tokenId, String startTimeStamp, String endTimeStamp) {
         this.callerId = callerId;
-        this.receiverId = receiverId;
+        this.recieverId = recieverId;
         this.callType = callType;
+        this.callStatus = callStatus;
+        this.sessionId = sessionId;
+        this.tokenId = tokenId;
+        this.startTimeStamp = startTimeStamp;
+        this.endTimeStamp = endTimeStamp;
     }
 
     public String getCallerId() {
@@ -22,12 +32,12 @@ public class Call {
         this.callerId = callerId;
     }
 
-    public String getReceiverId() {
-        return receiverId;
+    public String getRecieverId() {
+        return recieverId;
     }
 
-    public void setReceiverId(String receiverId) {
-        this.receiverId = receiverId;
+    public void setRecieverId(String recieverId) {
+        this.recieverId = recieverId;
     }
 
     public String getCallType() {
@@ -36,5 +46,46 @@ public class Call {
 
     public void setCallType(String callType) {
         this.callType = callType;
+    }
+
+    public String getCallStatus() {
+        return callStatus;
+    }
+
+    public void setCallStatus(String callStatus) {
+        this.callStatus = callStatus;
+    }
+
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    public String getTokenId() {
+        return tokenId;
+    }
+
+    public void setTokenId(String tokenId) {
+        this.tokenId = tokenId;
+    }
+
+    public String getStartTimeStamp() {
+        return startTimeStamp;
+    }
+
+    public void setStartTimeStamp(String startTimeStamp) {
+        this.startTimeStamp = startTimeStamp;
+    }
+
+    public String getEndTimeStamp() {
+        return endTimeStamp;
+    }
+
+    public void setEndTimeStamp(String endTimeStamp) {
+        this.endTimeStamp = endTimeStamp;
     }
 }
